@@ -26,6 +26,9 @@ chord_notes = {
   "7": [0, 4, 7, 10],
   "maj7": [0, 4, 7, 11],
   "min": [0, 3, 7],
+  "min7": [0, 3, 7, 10],
+  "dim": [0, 3, 6],
+  "dim7": [0, 3, 6, 10],
 }
 
 get_full_chord = (chord_name) ->
@@ -38,6 +41,7 @@ get_full_chord = (chord_name) ->
   full_chords = ((n + tcn for tcn in tcns) for n in full_c)
   a = new Array
   concatenated = full_chords.concat.apply(a, full_chords)
+  console.log concatenated
   return concatenated
 
 
@@ -56,7 +60,9 @@ class FretboardCanvas
     @maxx = @width - @border
     @maxy = @height - @border
     @num_strings = @fretboard.strings.length
+    @set_xs()
 
+  set_xs: () ->
     @xs = []
     @ratio = 1 / Math.pow(2, 1/12)
     fretwidth = @fretwidth
@@ -69,11 +75,9 @@ class FretboardCanvas
   draw_fretboard: () ->
     @ctx.beginPath()
     @ctx.strokeStyle = "red"
-
     for x in @xs
       @ctx.moveTo x, @border
       @ctx.lineTo x, @height - @border
-
     @ctx.stroke()
 
   draw_strings: () ->
@@ -82,7 +86,7 @@ class FretboardCanvas
     @apart = (@height - @border * 2) / @num_strings
     @gutter = @border + @apart / 2
     wherey = @gutter
-    while wherey < @height
+    while wherey < @height - @border
       @ctx.moveTo 0, wherey
       @ctx.lineTo @maxx, wherey
       wherey += @apart
@@ -104,7 +108,6 @@ class FretboardCanvas
         @ctx.fill()
         @ctx.stroke()
       centery += @apart
-    console.log "notes!"
 
   draw_text: () ->
     @ctx.fillText(@chord_name, 10, 50)
@@ -140,8 +143,6 @@ class Fretboard
     ]
     ###
     full_chord = get_full_chord(chord_name)
-    console.log full_chord
-
     ret = []
     for s in @strings
       sret = []
@@ -153,7 +154,7 @@ class Fretboard
 
 class SongAnimator
 
-  constructor: (@fbc, @comma_song) ->
+  constructor: (@fbc, @comma_song, @tempo) ->
     @chords = @comma_song.split(",")
     @position = 0
     @chord = @chords[@position]
@@ -161,15 +162,14 @@ class SongAnimator
 
   draw: () =>
     @chord = @chords[@position].trim() || @chord
-    console.log @chord
     @fbc.replace(@chord)
     @position += 1
+
+    full_chord = get_full_chord @chord
+
     if @position >= @chords.length
       @position = 0
-
-    setTimeout(@draw, 800)
-
-
+    setTimeout(@draw, 1000)
 
 
 I_ONCE_KNEW_A_PRETTY_GIRL = '''
@@ -185,16 +185,70 @@ F#,,,,E,,,,G,,,B,,,,,,,F#,,,,,E,,,,,D,,,,B,,,,,,,
 F#,,,,E,,,,D,,,F#,,,,B,,,,,,
 '''
 
+class CommaPlayer
+
+  constructor: (@fbc, @comma_song, @tempo, @loop=false) ->
+    @chords = @comma_song.split(",")
+    @position = 0
+    @chord = @chords[@position]
+
+    @beats_per_second = @tempo / 60
+    @seconds_per_beat = 1 / @beats_per_second
+    @ms_per_beat = @seconds_per_beat * 1000
+
+  start: () ->
+    @timer = setTimeout @advance(), @ms_per_beat
+
+  stop: () ->
+    clearTimeout @timer
+
+  advance: () ->
+    @chord = @chords[@position].trim() || @chord
+    @fbc.replace(@chord)
+
+    @position += 1
+    if @loop and @position >= @chords.length
+      @position = 0
+    @play_beat()
+
+  play_beat: () ->
+    console.log "Subclasses implement"
+
+
+limit_notes = (notes) -> (n for n in notes when 100 > n > 20)
+
+class FullChordPlayer
+  play_beat: () ->
+    console.log @chord
+    MIDI.loadPlugin {
+      soundfontUrl: "MIDI.js/soundfont/"
+      instrument: "acoustic_grand_piano"
+      callback: () =>
+        sustain = @seconds_per_beat / 2
+        notes = limit_notes get_full_chord @chord
+        MIDI.chordOn(0, notes, 127, 0)
+        MIDI.chordOff(0, notes, seconds_per_beat)
+    }
+
+
+
+
 
 main = () ->
-  # ukelele
-  strings = [67, 60, 64, 69]
   # guitar
   strings = [40, 45, 50, 55, 59, 64]
+  # bass
+  strings = [28, 33, 38, 43]
+  # ukelele
+  strings = [67, 60, 64, 69]
   window.fb = new Fretboard(strings)
   window.fbc = new FretboardCanvas(fb)
   document.body.appendChild fbc.canvas
   fbc.canvas.className = "full"
-  sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
+  #sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
+  #sa = new SongAnimator(fbc, I_ONCE_KNEW_A_PRETTY_GIRL)
+  fbc.replace("A min7")
+
+  window.chord_player = new FullChordPlayer(fbc, STARIN_AT_THE_WALLS, 90)
 
 window.onload = main
