@@ -21,14 +21,19 @@ trans = {
 }
 
 chord_notes = {
+  "": [0, 4, 7],
   "maj": [0, 4, 7],
+  "7": [0, 4, 7, 10],
   "maj7": [0, 4, 7, 11],
   "min": [0, 3, 7],
 }
 
-get_full_chord = (note, chord) ->
+get_full_chord = (chord_name) ->
+  split = chord_name.trim().split(" ")
+  note = split[0]
+  chord = split[1]
   tn = trans[note]
-  cns = chord_notes[chord]
+  cns = chord_notes[chord] || [0, 4, 7]
   tcns = ((n + tn) % 12 for n in cns)
   full_chords = ((n + tcn for tcn in tcns) for n in full_c)
   a = new Array
@@ -50,7 +55,7 @@ class FretboardCanvas
     @border = @fretwidth / 2
     @maxx = @width - @border
     @maxy = @height - @border
-    @num_strings = @fretboard.length
+    @num_strings = @fretboard.strings.length
 
     @xs = []
     @ratio = 1 / Math.pow(2, 1/12)
@@ -87,7 +92,7 @@ class FretboardCanvas
     @ctx.strokeStyle = "blue"
     radius = @border / 2
     centery = @gutter
-    for string in @fretboard
+    for string in @fb_state
       for pos in string
         @ctx.beginPath()
         if pos is 0
@@ -101,18 +106,30 @@ class FretboardCanvas
       centery += @apart
     console.log "notes!"
 
+  draw_text: () ->
+    @ctx.fillText(@chord_name, 10, 50)
+
+  replace: (chord_name) ->
+    @ctx.clearRect 0, 0, @width, @height
+    @fb_state = @fretboard.get(chord_name)
+    @chord_name = chord_name
+    @draw()
+
   draw: () ->
     @draw_fretboard()
     @draw_strings()
     @draw_notes()
+    @draw_text()
 
 
 class Fretboard
 
   constructor: (@strings) ->
 
-  get: (note, chord) ->
+  get: (chord_name) ->
     ###
+    chord comes as string like "G min "
+
     Returns the full fretboard, string by string.
     So, a C major on the ukelele would be:
     [
@@ -122,7 +139,8 @@ class Fretboard
       [0, 3, 7, 12, ...]  # A string (9)
     ]
     ###
-    full_chord = get_full_chord(note, chord)
+    full_chord = get_full_chord(chord_name)
+    console.log full_chord
 
     ret = []
     for s in @strings
@@ -133,15 +151,48 @@ class Fretboard
       ret.push sret
     ret
 
+class SongAnimator
+
+  constructor: (@fbc, @comma_song) ->
+    @chords = @comma_song.split(",")
+    @position = 0
+    @chord = @chords[@position]
+    @draw()
+
+  draw: () =>
+    @chord = @chords[@position].trim() || @chord
+    console.log @chord
+    @fbc.replace(@chord)
+    @position += 1
+    if @position >= @chords.length
+      @position = 0
+
+    setTimeout(@draw, 800)
+
+
+
+
+I_ONCE_KNEW_A_PRETTY_GIRL = '''
+G min,,,,,,,,C min,,,,,,,,
+G min,,,Bb maj,,,D 7,,,G min,,,
+G min,,,D 7,,,G min,,,
+'''
+
+STARIN_AT_THE_WALLS = '''
+B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,
+B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,
+F#,,,,E,,,,G,,,B,,,,,,,F#,,,,,E,,,,,D,,,,B,,,,,,,
+F#,,,,E,,,,D,,,F#,,,,B,,,,,,
+'''
+
 
 main = () ->
   # ukelele
   strings = [67, 60, 64, 69]
-  fb = new Fretboard(strings)
-  fbc = new FretboardCanvas(fb.get("F", "maj"))
-  fbc = new FretboardCanvas(fb.get("G", "maj"))
+  window.fb = new Fretboard(strings)
+  window.fbc = new FretboardCanvas(fb)
   document.body.appendChild fbc.canvas
   fbc.canvas.className = "full"
-  fbc.draw()
+  sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
 
 window.onload = main
