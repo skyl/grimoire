@@ -127,7 +127,7 @@
     FretboardCanvas.prototype.draw_notes = function() {
       var centery, diff, pos, radius, string, _i, _j, _len, _len1, _ref;
       this.ctx.strokeStyle = "blue";
-      radius = this.border / 2;
+      radius = this.apart / 2;
       centery = this.gutter;
       _ref = this.fb_state;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -246,6 +246,7 @@
   main = function() {
     var sa, strings;
     strings = [67, 60, 64, 69];
+    strings = [40, 45, 50, 55, 59, 64];
     window.fb = new Fretboard(strings);
     window.fbc = new FretboardCanvas(fb);
     document.body.appendChild(fbc.canvas);

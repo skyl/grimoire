@@ -90,7 +90,7 @@ class FretboardCanvas
 
   draw_notes: () ->
     @ctx.strokeStyle = "blue"
-    radius = @border / 2
+    radius = @apart / 2
     centery = @gutter
     for string in @fb_state
       for pos in string
@@ -189,6 +189,8 @@ F#,,,,E,,,,D,,,F#,,,,B,,,,,,
 main = () ->
   # ukelele
   strings = [67, 60, 64, 69]
+  # guitar
+  strings = [40, 45, 50, 55, 59, 64]
   window.fb = new Fretboard(strings)
   window.fbc = new FretboardCanvas(fb)
   document.body.appendChild fbc.canvas
