@@ -31,6 +31,8 @@ chord_notes = {
   "dim7": [0, 3, 6, 10],
 }
 
+color_map = MusicTheory.Synesthesia.map()
+
 get_full_chord = (chord_name) ->
   split = chord_name.trim().split(" ")
   note = split[0]
@@ -95,7 +97,7 @@ class FretboardCanvas
     @ctx.strokeStyle = "blue"
     radius = @apart / 2
     centery = @gutter
-    for string in @fb_state
+    for string, i in @fb_state
       for pos in string
         @ctx.beginPath()
         if pos is 0
@@ -103,7 +105,7 @@ class FretboardCanvas
         else
           diff = Math.pow(@ratio, pos) * @fretwidth / 2
         @ctx.arc(@xs[pos] + diff, centery, radius, 0, 2 * Math.PI)
-        @ctx.fillStyle = 'green'
+        @ctx.fillStyle = color_map[@fretboard.strings[i] + pos].hex
         @ctx.fill()
         @ctx.stroke()
       centery += @apart
@@ -151,30 +153,18 @@ class Fretboard
       ret.push sret
     ret
 
-class SongAnimator
-
-  constructor: (@fbc, @comma_song, @tempo) ->
-    @chords = @comma_song.split(",")
-    @position = 0
-    @chord = @chords[@position]
-    @draw()
-
-  draw: () =>
-    @chord = @chords[@position].trim() || @chord
-    @fbc.replace(@chord)
-    @position += 1
-
-    full_chord = get_full_chord @chord
-
-    if @position >= @chords.length
-      @position = 0
-    setTimeout(@draw, 1000)
-
 
 I_ONCE_KNEW_A_PRETTY_GIRL = '''
-G min,,,,,,,,C min,,,,,,,,
+G min,,,,,,C min,,,,,
 G min,,,Bb maj,,,D 7,,,G min,,,
 G min,,,D 7,,,G min,,,
+G min,,,,,,,,,,
+C min,,,,,,,,
+G min,,,,,,,,
+D,,,,,,,,
+G min,,,,,,,,
+D 7,,,,,,,,
+G min,,,,,,,,
 '''
 
 STARIN_AT_THE_WALLS = '''
@@ -205,7 +195,7 @@ class CommaPlayer
     clearInterval @timer
 
   advance: () =>
-    console.log "advance"
+    #console.log "advance"
     @chord = @chords[@position].trim() || @chord
     @fbc.replace(@chord)
 
@@ -228,8 +218,24 @@ class FullChordPlayer extends CommaPlayer
   play_beat: () ->
     sustain = @seconds_per_beat / 2
     notes = limit_notes get_full_chord @chord
-    MIDI.chordOn(0, notes, 127, 0)
-    MIDI.chordOff(0, notes, @seconds_per_beat)
+    MIDI.chordOn(0, notes, 60, 0)
+    MIDI.chordOff(0, notes, @sustain)
+
+class RandomArpPlayer extends CommaPlayer
+
+  play_beat: () ->
+    sustain = @seconds_per_beat / 2
+    sixteenth = @seconds_per_beat / 4
+    notes = limit_notes get_full_chord @chord
+    place = 0
+    #console.log notes
+    #console.log place, @seconds_per_beat
+    while place < @seconds_per_beat
+      #console.log place, @seconds_per_beat
+      rand = notes[Math.floor(Math.random() * notes.length)]
+      MIDI.noteOn(0, rand, Math.random() * 127, place)
+      MIDI.noteOff(0, rand, place + sustain)
+      place += sixteenth
 
 
 main = () ->
@@ -246,8 +252,11 @@ main = () ->
   #sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
   #sa = new SongAnimator(fbc, I_ONCE_KNEW_A_PRETTY_GIRL)
   #fbc.replace("A min7")
-  window.chord_player = new FullChordPlayer(fbc, STARIN_AT_THE_WALLS, 90)
+  #window.chord_player = new FullChordPlayer(fbc, STARIN_AT_THE_WALLS, 190)
+  window.chord_player = new FullChordPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 95, true)
+  window.chord_player2 = new RandomArpPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 95, true)
   chord_player.start()
+  chord_player2.start()
 
 window.onload = () ->
   MIDI.loadPlugin {
