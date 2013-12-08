@@ -260,7 +260,7 @@ main = () ->
 
 window.onload = () ->
   MIDI.loadPlugin {
-    soundfontUrl: "/midi/MIDI.js/soundfont/"
+    soundfontUrl: "midi/MIDI.js/soundfont/"
     instrument: "acoustic_grand_piano"
     callback: main
   }
