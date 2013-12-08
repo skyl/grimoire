@@ -1,8 +1,8 @@
-<html>
+<html ng-app="fretboardApp">
   <head>
     <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      .full {width: 100%; height: 100%;}
+      .full {width: 100%; height: 90%;}
     </style>
     <script src="midi/MIDI.js/js/MIDI/AudioDetect.js" type="text/javascript"></script>
     <script src="midi/MIDI.js/js/MIDI/LoadPlugin.js" type="text/javascript"></script>
@@ -14,8 +14,21 @@
     <script src="midi/MIDI.js/js/Window/DOMLoader.script.js" type="text/javascript"></script>
     <script src="midi/MIDI.js/inc/Base64.js" type="text/javascript"></script>
     <script src="midi/MIDI.js/inc/base64binary.js" type="text/javascript"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.4/angular.min.js"></script>
     <script src="fretboard-prototype.js"></script>
   </head>
   <body>
+    <div ng-controller="FretboardChanger">
+      <select
+        ng-change="instrument_change()"
+        ng-model="instrument"
+        ng-options="value as key for (key, value) in instruments"
+      >
+      </select>
+      <textarea ng-model="comma_song" ng-keyup="comma_song_keyup()"></textarea>
+      Tempo:
+      <input ng-model="tempo" ng-change="tempo_change()" type="range" min="20" max="180">
+    </div>
+    <canvas id="fretboard" class="full">
   </body>
 </html>

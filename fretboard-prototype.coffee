@@ -48,13 +48,15 @@ get_full_chord = (chord_name) ->
 
 class FretboardCanvas
 
-  constructor: (@fretboard) ->
-    @canvas = document.createElement "canvas"
+  constructor: (id, @fretboard) ->
+    @canvas = document.getElementById id
     window.canvas = @canvas
-    @canvas.width = @width = document.body.clientWidth
-    @canvas.height = @height = document.body.clientHeight
+    @width = @canvas.width = @canvas.offsetWidth
+    @height = @canvas.height = @canvas.offsetHeight
     @ctx = @canvas.getContext "2d"
+    @calculate()
 
+  calculate: () ->
     # largest fret and border calculated from that
     @fretwidth = @width / 8
     @border = @fretwidth / 2
@@ -174,13 +176,27 @@ F#,,,,E,,,,G,,,,B,,,,F#,,,,E,,,,D,,,B,,,,,
 F#,,,,E,,,,D,,F#,,,,,,B,,,,
 '''
 
+BASIC_MINOR_SONG = """
+C min,,G min,,
+C min,,G min,,
+C min,,G min,,
+F min,,G min,,
+C min,,G min,,
+Eb,,G min,,
+C min,,G min,,
+F min,,Bb,,
+"""
+
 class CommaPlayer
 
   constructor: (@fbc, @comma_song, @tempo, @loop=false) ->
-    @chords = @comma_song.split(",")
     @position = 0
-    @chord = @chords[@position]
+    @calculate()
 
+  calculate: () ->
+    @chords = @comma_song.split(",")
+    @chords.pop()  # trailing comma ..
+    @chord = @chords[@position] || @chord
     @beats_per_second = @tempo / 60
     @seconds_per_beat = 1 / @beats_per_second
     @ms_per_beat = @seconds_per_beat * 1000
@@ -195,17 +211,15 @@ class CommaPlayer
     clearInterval @timer
 
   advance: () =>
-    #console.log "advance"
-    @chord = @chords[@position].trim() || @chord
-    @fbc.replace(@chord)
-
-    @position += 1
     if @position >= @chords.length
       if @loop
         @position = 0
       else
         @stop()
+    @chord = (@chords[@position] || @chord).trim()
+    @fbc.replace(@chord)
     @play_beat()
+    @position += 1
 
   play_beat: () ->
     console.log "Subclasses implement"
@@ -228,33 +242,30 @@ class RandomArpPlayer extends CommaPlayer
     sixteenth = @seconds_per_beat / 4
     notes = limit_notes get_full_chord @chord
     place = 0
-    #console.log notes
-    #console.log place, @seconds_per_beat
     while place < @seconds_per_beat
-      #console.log place, @seconds_per_beat
       rand = notes[Math.floor(Math.random() * notes.length)]
       MIDI.noteOn(0, rand, Math.random() * 127, place)
       MIDI.noteOff(0, rand, place + sustain)
       place += sixteenth
 
 
+instruments = {
+  "guitar": [40, 45, 50, 55, 59, 64],
+  "bass": [28, 33, 38, 43],
+  "ukelele": [67, 60, 64, 69],
+}
+
 main = () ->
-  # guitar
-  strings = [40, 45, 50, 55, 59, 64]
-  # bass
-  strings = [28, 33, 38, 43]
-  # ukelele
-  strings = [67, 60, 64, 69]
-  window.fb = new Fretboard(strings)
-  window.fbc = new FretboardCanvas(fb)
+  window.fb = new Fretboard(instruments["ukelele"])
+  window.fbc = new FretboardCanvas("fretboard", fb)
   document.body.appendChild fbc.canvas
   fbc.canvas.className = "full"
   #sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
   #sa = new SongAnimator(fbc, I_ONCE_KNEW_A_PRETTY_GIRL)
   #fbc.replace("A min7")
   #window.chord_player = new FullChordPlayer(fbc, STARIN_AT_THE_WALLS, 190)
-  window.chord_player = new FullChordPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 95, true)
-  window.chord_player2 = new RandomArpPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 95, true)
+  window.chord_player = new FullChordPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 53, true)
+  window.chord_player2 = new RandomArpPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 53, true)
   chord_player.start()
   chord_player2.start()
 
@@ -264,3 +275,27 @@ window.onload = () ->
     instrument: "acoustic_grand_piano"
     callback: main
   }
+
+window.fretboardApp = angular.module 'fretboardApp', []
+fretboardApp.controller 'FretboardChanger', ($scope) ->
+  window.scope = $scope
+  $scope.instruments = instruments
+  $scope.instrument = instruments["ukelele"]
+  $scope.instrument_change = () ->
+    fb.strings = $scope.instrument
+    fbc.calculate()
+  $scope.comma_song = I_ONCE_KNEW_A_PRETTY_GIRL
+  $scope.comma_song_keyup = () ->
+    if chord_player.comma_song isnt $scope.comma_song
+      chord_player.comma_song = $scope.comma_song
+      chord_player2.comma_song = $scope.comma_song
+      chord_player.calculate()
+      chord_player2.calculate()
+  $scope.tempo = 53
+  $scope.tempo_change = () ->
+    chord_player.tempo = $scope.tempo
+    chord_player2.tempo = $scope.tempo
+    chord_player.calculate()
+    chord_player.stop(); chord_player.start()
+    chord_player2.calculate()
+    chord_player2.stop(); chord_player2.start()
