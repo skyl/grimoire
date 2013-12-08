@@ -95,7 +95,7 @@ class FretboardCanvas
 
   draw_notes: () ->
     @ctx.strokeStyle = "blue"
-    radius = @apart / 2
+    radius = @fretwidth / 3
     centery = @gutter
     for string, i in @fb_state
       for pos in string

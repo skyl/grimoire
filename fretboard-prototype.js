@@ -140,7 +140,7 @@
     FretboardCanvas.prototype.draw_notes = function() {
       var centery, diff, i, pos, radius, string, _i, _j, _len, _len1, _ref, _results;
       this.ctx.strokeStyle = "blue";
-      radius = this.apart / 2;
+      radius = this.fretwidth / 3;
       centery = this.gutter;
       _ref = this.fb_state;
       _results = [];
