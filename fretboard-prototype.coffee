@@ -41,7 +41,6 @@ get_full_chord = (chord_name) ->
   full_chords = ((n + tcn for tcn in tcns) for n in full_c)
   a = new Array
   concatenated = full_chords.concat.apply(a, full_chords)
-  console.log concatenated
   return concatenated
 
 
@@ -179,10 +178,10 @@ G min,,,D 7,,,G min,,,
 '''
 
 STARIN_AT_THE_WALLS = '''
-B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,
-B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,
-F#,,,,E,,,,G,,,B,,,,,,,F#,,,,,E,,,,,D,,,,B,,,,,,,
-F#,,,,E,,,,D,,,F#,,,,B,,,,,,
+B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,,,
+B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,,,
+F#,,,,E,,,,G,,,,B,,,,F#,,,,E,,,,D,,,B,,,,,
+F#,,,,E,,,,D,,F#,,,,,,B,,,,
 '''
 
 class CommaPlayer
@@ -197,18 +196,25 @@ class CommaPlayer
     @ms_per_beat = @seconds_per_beat * 1000
 
   start: () ->
-    @timer = setTimeout @advance(), @ms_per_beat
+    self = this
+    @timer = setInterval ()->
+      self.advance()
+    , @ms_per_beat
 
   stop: () ->
-    clearTimeout @timer
+    clearInterval @timer
 
-  advance: () ->
+  advance: () =>
+    console.log "advance"
     @chord = @chords[@position].trim() || @chord
     @fbc.replace(@chord)
 
     @position += 1
-    if @loop and @position >= @chords.length
-      @position = 0
+    if @position >= @chords.length
+      if @loop
+        @position = 0
+      else
+        @stop()
     @play_beat()
 
   play_beat: () ->
@@ -217,21 +223,13 @@ class CommaPlayer
 
 limit_notes = (notes) -> (n for n in notes when 100 > n > 20)
 
-class FullChordPlayer
+class FullChordPlayer extends CommaPlayer
+
   play_beat: () ->
-    console.log @chord
-    MIDI.loadPlugin {
-      soundfontUrl: "MIDI.js/soundfont/"
-      instrument: "acoustic_grand_piano"
-      callback: () =>
-        sustain = @seconds_per_beat / 2
-        notes = limit_notes get_full_chord @chord
-        MIDI.chordOn(0, notes, 127, 0)
-        MIDI.chordOff(0, notes, seconds_per_beat)
-    }
-
-
-
+    sustain = @seconds_per_beat / 2
+    notes = limit_notes get_full_chord @chord
+    MIDI.chordOn(0, notes, 127, 0)
+    MIDI.chordOff(0, notes, @seconds_per_beat)
 
 
 main = () ->
@@ -247,8 +245,13 @@ main = () ->
   fbc.canvas.className = "full"
   #sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
   #sa = new SongAnimator(fbc, I_ONCE_KNEW_A_PRETTY_GIRL)
-  fbc.replace("A min7")
-
+  #fbc.replace("A min7")
   window.chord_player = new FullChordPlayer(fbc, STARIN_AT_THE_WALLS, 90)
+  chord_player.start()
 
-window.onload = main
+window.onload = () ->
+  MIDI.loadPlugin {
+    soundfontUrl: "/midi/MIDI.js/soundfont/"
+    instrument: "acoustic_grand_piano"
+    callback: main
+  }
