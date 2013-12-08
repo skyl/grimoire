@@ -29,6 +29,8 @@ chord_notes = {
   "min7": [0, 3, 7, 10],
   "dim": [0, 3, 6],
   "dim7": [0, 3, 6, 10],
+  "aug": [0, 4, 8],
+  "aug7": [0, 4, 8, 10],
 }
 
 color_map = MusicTheory.Synesthesia.map()
@@ -54,11 +56,15 @@ class FretboardCanvas
     @width = @canvas.width = @canvas.offsetWidth
     @height = @canvas.height = @canvas.offsetHeight
     @ctx = @canvas.getContext "2d"
+    @ctx.font = "20pt Arial"
     @calculate()
 
   calculate: () ->
     # largest fret and border calculated from that
-    @fretwidth = @width / 8
+    # magic 8 means there will be about 9 frets
+    # magic 10 means there will be about 13 frets
+    # FIXME.
+    @fretwidth = @width / 10
     @border = @fretwidth / 2
     @maxx = @width - @border
     @maxy = @height - @border
@@ -113,6 +119,8 @@ class FretboardCanvas
       centery += @apart
 
   draw_text: () ->
+    n = trans[@chord_name.split(" ")[0].trim()]
+    @ctx.fillStyle = color_map[n].hex
     @ctx.fillText(@chord_name, 10, 50)
 
   replace: (chord_name) ->
@@ -134,7 +142,7 @@ class Fretboard
 
   get: (chord_name) ->
     ###
-    chord comes as string like "G min "
+    chord_name comes as string like "G min "
 
     Returns the full fretboard, string by string.
     So, a C major on the ukelele would be:
@@ -156,6 +164,12 @@ class Fretboard
     ret
 
 
+TWINKLE = """
+C,,,,,,,,F,,,,C,,,,F,,,,C,,,,G,,,,C,,,,
+C,,,,F,,,,C,,,,G,,,,
+C,,,,F,,,,C,,,,G,,,,
+"""
+
 I_ONCE_KNEW_A_PRETTY_GIRL = '''
 G min,,,,,,C min,,,,,
 G min,,,Bb maj,,,D 7,,,G min,,,
@@ -176,6 +190,8 @@ F#,,,,E,,,,G,,,,B,,,,F#,,,,E,,,,D,,,B,,,,,
 F#,,,,E,,,,D,,F#,,,,,,B,,,,
 '''
 
+WAGON_WHEEL = "C,,G,,A min,,F,,"
+
 BASIC_MINOR_SONG = """
 C min,,G min,,
 C min,,G min,,
@@ -186,10 +202,17 @@ Eb,,G min,,
 C min,,G min,,
 F min,,Bb,,
 """
+MOST_BASIC_SONG = "C,,G,,"
+SILVER_DAGGER = """
+F,,,,,,,,Bb,,,,,,,,F,,,,,,,,G min,,,,,,,,
+Eb,,,,,,,C min,,,,,,,,G min,,,,Eb,,,,F,,,,,,,,
+"""
+
+START_SONG = SILVER_DAGGER
 
 class CommaPlayer
 
-  constructor: (@fbc, @comma_song, @tempo, @loop=false) ->
+  constructor: (@fbc, @comma_song, @tempo, @loop=false, @low=20, @high=100) ->
     @position = 0
     @calculate()
 
@@ -225,22 +248,35 @@ class CommaPlayer
     console.log "Subclasses implement"
 
 
-limit_notes = (notes) -> (n for n in notes when 100 > n > 20)
+limit_notes = (notes, low=20, high=100) ->
+  (n for n in notes when high >= n >= low)
+
 
 class FullChordPlayer extends CommaPlayer
 
   play_beat: () ->
-    sustain = @seconds_per_beat / 2
-    notes = limit_notes get_full_chord @chord
-    MIDI.chordOn(0, notes, 60, 0)
-    MIDI.chordOff(0, notes, @sustain)
+    sustain = @seconds_per_beat / 8
+    notes = limit_notes(get_full_chord(@chord), @low, @high)
+    MIDI.chordOn(0, notes, 40, 0)
+    MIDI.chordOff(0, notes, sustain)
+
+
+class UpbeatChordPlayer extends CommaPlayer
+
+  play_beat: () ->
+    sustain = @seconds_per_beat / 8
+    start = @seconds_per_beat / 2
+    notes = limit_notes(get_full_chord(@chord), @low, @high)
+    MIDI.chordOn(0, notes, 40, start)
+    MIDI.chordOff(0, notes, start + sustain)
+
 
 class RandomArpPlayer extends CommaPlayer
 
   play_beat: () ->
     sustain = @seconds_per_beat / 2
     sixteenth = @seconds_per_beat / 4
-    notes = limit_notes get_full_chord @chord
+    notes = limit_notes(get_full_chord(@chord), @low, @high)
     place = 0
     while place < @seconds_per_beat
       rand = notes[Math.floor(Math.random() * notes.length)]
@@ -248,54 +284,60 @@ class RandomArpPlayer extends CommaPlayer
       MIDI.noteOff(0, rand, place + sustain)
       place += sixteenth
 
-
 instruments = {
   "guitar": [40, 45, 50, 55, 59, 64],
   "bass": [28, 33, 38, 43],
   "ukelele": [67, 60, 64, 69],
 }
 
-main = () ->
-  window.fb = new Fretboard(instruments["ukelele"])
-  window.fbc = new FretboardCanvas("fretboard", fb)
-  document.body.appendChild fbc.canvas
-  fbc.canvas.className = "full"
-  #sa = new SongAnimator(fbc, STARIN_AT_THE_WALLS)
-  #sa = new SongAnimator(fbc, I_ONCE_KNEW_A_PRETTY_GIRL)
-  #fbc.replace("A min7")
-  #window.chord_player = new FullChordPlayer(fbc, STARIN_AT_THE_WALLS, 190)
-  window.chord_player = new FullChordPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 53, true)
-  window.chord_player2 = new RandomArpPlayer(fbc, I_ONCE_KNEW_A_PRETTY_GIRL, 53, true)
-  chord_player.start()
-  chord_player2.start()
-
-window.onload = () ->
-  MIDI.loadPlugin {
-    soundfontUrl: "midi/MIDI.js/soundfont/"
-    instrument: "acoustic_grand_piano"
-    callback: main
-  }
-
 window.fretboardApp = angular.module 'fretboardApp', []
 fretboardApp.controller 'FretboardChanger', ($scope) ->
   window.scope = $scope
   $scope.instruments = instruments
   $scope.instrument = instruments["ukelele"]
+  $scope.comma_song = START_SONG
+  $scope.tempo = 42
+  $scope.limit_notes = false
+  $scope.loop = true
+
   $scope.instrument_change = () ->
-    fb.strings = $scope.instrument
-    fbc.calculate()
-  $scope.comma_song = I_ONCE_KNEW_A_PRETTY_GIRL
+    $scope.fb.strings = $scope.instrument
+    $scope.fbc.calculate()
+    $scope.limit_notes_change()
+  $scope.limit_notes_change = () ->
+    for p in $scope.players
+      if $scope.limit_notes
+        p.low = Math.min.apply null, $scope.instrument
+        p.high = (Math.min.apply null, $scope.instrument) + 12
+      else
+        p.low = 20
+        p.high = 100
   $scope.comma_song_keyup = () ->
-    if chord_player.comma_song isnt $scope.comma_song
-      chord_player.comma_song = $scope.comma_song
-      chord_player2.comma_song = $scope.comma_song
-      chord_player.calculate()
-      chord_player2.calculate()
-  $scope.tempo = 53
+    if $scope.players[0].comma_song isnt $scope.comma_song
+      for p in $scope.players
+        p.comma_song = $scope.comma_song
+        p.calculate()
   $scope.tempo_change = () ->
-    chord_player.tempo = $scope.tempo
-    chord_player2.tempo = $scope.tempo
-    chord_player.calculate()
-    chord_player.stop(); chord_player.start()
-    chord_player2.calculate()
-    chord_player2.stop(); chord_player2.start()
+    for p in $scope.players
+      p.tempo = $scope.tempo
+      p.stop()
+      p.calculate()
+      p.start()
+  $scope.loop_change = () ->
+    for p in $scope.players
+      p.loop = $scope.loop
+
+  $scope.start = () ->
+    $scope.fb = new Fretboard $scope.instrument
+    $scope.fbc = new FretboardCanvas "fretboard", $scope.fb
+    $scope.players = [
+      new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.tempo, $scope.loop),
+      new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.tempo, $scope.loop)
+    ]
+    for p in $scope.players
+      p.start()
+  MIDI.loadPlugin {
+    soundfontUrl: "midi/MIDI.js/soundfont/"
+    instrument: "acoustic_grand_piano"
+    callback: $scope.start
+  }

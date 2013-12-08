@@ -25,9 +25,20 @@
         ng-options="value as key for (key, value) in instruments"
       >
       </select>
+      Limit Notes:
+      <input type="checkbox"
+        ng-model="limit_notes"
+        ng-change="limit_notes_change()">
       <textarea ng-model="comma_song" ng-keyup="comma_song_keyup()"></textarea>
-      Tempo:
+      Tempo ({{ tempo }}):
       <input ng-model="tempo" ng-change="tempo_change()" type="range" min="20" max="180">
+      <!-- If we are going to toggle this, need to provide for start/stop/pause/etc -->
+      <!--
+      Loop:
+      <input type="checkbox"
+        ng-model="loop"
+        ng-change="loop_change()">
+      -->
     </div>
     <canvas id="fretboard" class="full">
   </body>
