@@ -482,7 +482,7 @@
       return _results;
     };
     return MIDI.loadPlugin({
-      soundfontUrl: "midi/MIDI.js/soundfont/",
+      soundfontUrl: "modules/MIDI.js/soundfont/",
       instrument: "acoustic_grand_piano",
       callback: $scope.start
     });

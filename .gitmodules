@@ -1,3 +1,9 @@
-[submodule "midi/MIDI.js"]
-	path = midi/MIDI.js
+[submodule "modules/AudioContext-MonkeyPatch"]
+	path = modules/AudioContext-MonkeyPatch
+	url = https://github.com/cwilso/AudioContext-MonkeyPatch.git
+[submodule "modules/MIDI.js"]
+	path = modules/MIDI.js
 	url = https://github.com/mudcube/MIDI.js.git
+[submodule "modules/metronome"]
+	path = modules/metronome
+	url = https://github.com/skyl/metronome.git
