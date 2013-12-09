@@ -23,14 +23,20 @@ trans = {
 chord_notes = {
   "": [0, 4, 7],
   "maj": [0, 4, 7],
+  "min": [0, 3, 7],
+  "dim": [0, 3, 6],
+  "aug": [0, 4, 8],
+
   "7": [0, 4, 7, 10],
   "maj7": [0, 4, 7, 11],
-  "min": [0, 3, 7],
   "min7": [0, 3, 7, 10],
-  "dim": [0, 3, 6],
   "dim7": [0, 3, 6, 10],
-  "aug": [0, 4, 8],
   "aug7": [0, 4, 8, 10],
+
+  "major": [0, 2, 4, 5, 7, 9, 11],
+  "a": [0, 2, 3, 5, 7, 8, 10],  # aeolian
+  "d": [0, 2, 3, 5, 7, 9, 10],  # whatever the d minor one is.
+
 }
 
 color_map = MusicTheory.Synesthesia.map()
@@ -119,8 +125,11 @@ class FretboardCanvas
       centery += @apart
 
   draw_text: () ->
-    n = trans[@chord_name.split(" ")[0].trim()]
-    @ctx.fillStyle = color_map[n].hex
+    cm = color_map[trans[@chord_name.split(" ")[0].trim()]]
+    try
+      # can be undefined if with bad input
+      @ctx.fillStyle = cm.hex
+    catch e
     @ctx.fillText(@chord_name, 10, 50)
 
   replace: (chord_name) ->
@@ -129,7 +138,7 @@ class FretboardCanvas
     @chord_name = chord_name
     @draw()
 
-  draw: () ->
+  draw: () =>
     @draw_fretboard()
     @draw_strings()
     @draw_notes()
@@ -212,7 +221,7 @@ START_SONG = SILVER_DAGGER
 
 class CommaPlayer
 
-  constructor: (@fbc, @comma_song, @tempo, @loop=false, @low=20, @high=100) ->
+  constructor: (@fbc, @comma_song, @metronome, @loop=false, @low=20, @high=100) ->
     @position = 0
     @calculate()
 
@@ -220,20 +229,15 @@ class CommaPlayer
     @chords = @comma_song.split(",")
     @chords.pop()  # trailing comma ..
     @chord = @chords[@position] || @chord
-    @beats_per_second = @tempo / 60
-    @seconds_per_beat = 1 / @beats_per_second
-    @ms_per_beat = @seconds_per_beat * 1000
 
-  start: () ->
-    self = this
-    @timer = setInterval ()->
-      self.advance()
-    , @ms_per_beat
-
-  stop: () ->
-    clearInterval @timer
-
-  advance: () =>
+  play: (current_tick, time) ->
+    # play the quarter
+    if (current_tick % 24)
+      return
+    #console.log time, @metronome.audioContext.currentTime
+    # we can show the chord 80ms early .. that makes it special.
+    # if we wanted to be exact, we would need to schedule the
+    # canvas to replace after waiting time - currentTime seconds.
     if @position >= @chords.length
       if @loop
         @position = 0
@@ -241,11 +245,7 @@ class CommaPlayer
         @stop()
     @chord = (@chords[@position] || @chord).trim()
     @fbc.replace(@chord)
-    @play_beat()
     @position += 1
-
-  play_beat: () ->
-    console.log "Subclasses implement"
 
 
 limit_notes = (notes, low=20, high=100) ->
@@ -254,35 +254,43 @@ limit_notes = (notes, low=20, high=100) ->
 
 class FullChordPlayer extends CommaPlayer
 
-  play_beat: () ->
-    sustain = @seconds_per_beat / 8
+  play: (current_tick, time, tempo, metronome) ->
+    super current_tick, time, tempo, metronome
+    if (current_tick % 24)
+      return
+    sustain = metronome.seconds_per_tick * 24
     notes = limit_notes(get_full_chord(@chord), @low, @high)
-    MIDI.chordOn(0, notes, 40, 0)
-    MIDI.chordOff(0, notes, sustain)
+    MIDI.chordOn(0, notes, 35, time)
+    MIDI.chordOff(0, notes, time + sustain)
 
 
 class UpbeatChordPlayer extends CommaPlayer
 
-  play_beat: () ->
-    sustain = @seconds_per_beat / 8
-    start = @seconds_per_beat / 2
+  play: (current_tick, time, tempo, metronome) ->
+    super current_tick, time, tempo, metronome
+    if (current_tick + 12 ) % 24
+      return
+    sustain = metronome.seconds_per_tick * 12
+    start = time - metronome.audioContext.currentTime
     notes = limit_notes(get_full_chord(@chord), @low, @high)
-    MIDI.chordOn(0, notes, 40, start)
+    MIDI.chordOn(0, notes, 35, start)
     MIDI.chordOff(0, notes, start + sustain)
 
 
 class RandomArpPlayer extends CommaPlayer
 
-  play_beat: () ->
-    sustain = @seconds_per_beat / 2
-    sixteenth = @seconds_per_beat / 4
+  play: (current_tick, time, tempo, metronome) ->
+    super current_tick, time, tempo, metronome
+    if (current_tick % 6)
+      return
+    # 16th
+    sustain = metronome.seconds_per_tick * 6
+    start = time - metronome.audioContext.currentTime
     notes = limit_notes(get_full_chord(@chord), @low, @high)
-    place = 0
-    while place < @seconds_per_beat
-      rand = notes[Math.floor(Math.random() * notes.length)]
-      MIDI.noteOn(0, rand, Math.random() * 127, place)
-      MIDI.noteOff(0, rand, place + sustain)
-      place += sixteenth
+    rand = notes[Math.floor(Math.random() * notes.length)]
+    MIDI.noteOn(0, rand, Math.random() * 127, start)
+    MIDI.noteOff(0, rand, start + sustain)
+
 
 instruments = {
   "guitar": [40, 45, 50, 55, 59, 64],
@@ -292,20 +300,31 @@ instruments = {
 
 window.fretboardApp = angular.module 'fretboardApp', []
 fretboardApp.controller 'FretboardChanger', ($scope) ->
+
   window.scope = $scope
   $scope.instruments = instruments
   $scope.instrument = instruments["ukelele"]
   $scope.comma_song = START_SONG
-  $scope.tempo = 42
   $scope.limit_notes = false
   $scope.loop = true
+
+  $scope.tempo = 61
+  $scope.metronome = new Metronome {
+    tempo: $scope.tempo
+    lookahead: 20
+    schedule_ahead_time: .1
+  }
+  $scope.tempo_change = () ->
+    $scope.metronome.stop()
+    $scope.metronome.tempo = $scope.tempo
+    $scope.metronome.start()
 
   $scope.instrument_change = () ->
     $scope.fb.strings = $scope.instrument
     $scope.fbc.calculate()
     $scope.limit_notes_change()
   $scope.limit_notes_change = () ->
-    for p in $scope.players
+    for p in $scope.metronome.players
       if $scope.limit_notes
         p.low = Math.min.apply null, $scope.instrument
         p.high = (Math.min.apply null, $scope.instrument) + 12
@@ -313,29 +332,19 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
         p.low = 20
         p.high = 100
   $scope.comma_song_keyup = () ->
-    if $scope.players[0].comma_song isnt $scope.comma_song
-      for p in $scope.players
+    if $scope.metronome.players[0].comma_song isnt $scope.comma_song
+      for p in $scope.metronome.players
         p.comma_song = $scope.comma_song
         p.calculate()
-  $scope.tempo_change = () ->
-    for p in $scope.players
-      p.tempo = $scope.tempo
-      p.stop()
-      p.calculate()
-      p.start()
-  $scope.loop_change = () ->
-    for p in $scope.players
-      p.loop = $scope.loop
-
   $scope.start = () ->
     $scope.fb = new Fretboard $scope.instrument
     $scope.fbc = new FretboardCanvas "fretboard", $scope.fb
-    $scope.players = [
-      new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.tempo, $scope.loop),
-      new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.tempo, $scope.loop)
+
+    $scope.metronome.players = [
+      new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop),
+      new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop)
     ]
-    for p in $scope.players
-      p.start()
+    $scope.metronome.start()
   MIDI.loadPlugin {
     soundfontUrl: "modules/MIDI.js/soundfont/"
     instrument: "acoustic_grand_piano"

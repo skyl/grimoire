@@ -30,14 +30,17 @@
   chord_notes = {
     "": [0, 4, 7],
     "maj": [0, 4, 7],
+    "min": [0, 3, 7],
+    "dim": [0, 3, 6],
+    "aug": [0, 4, 8],
     "7": [0, 4, 7, 10],
     "maj7": [0, 4, 7, 11],
-    "min": [0, 3, 7],
     "min7": [0, 3, 7, 10],
-    "dim": [0, 3, 6],
     "dim7": [0, 3, 6, 10],
-    "aug": [0, 4, 8],
-    "aug7": [0, 4, 8, 10]
+    "aug7": [0, 4, 8, 10],
+    "major": [0, 2, 4, 5, 7, 9, 11],
+    "a": [0, 2, 3, 5, 7, 8, 10],
+    "d": [0, 2, 3, 5, 7, 9, 10]
   };
 
   color_map = MusicTheory.Synesthesia.map();
@@ -83,6 +86,7 @@
   FretboardCanvas = (function() {
     function FretboardCanvas(id, fretboard) {
       this.fretboard = fretboard;
+      this.draw = __bind(this.draw, this);
       this.canvas = document.getElementById(id);
       window.canvas = this.canvas;
       this.width = this.canvas.width = this.canvas.offsetWidth;
@@ -172,9 +176,13 @@
     };
 
     FretboardCanvas.prototype.draw_text = function() {
-      var n;
-      n = trans[this.chord_name.split(" ")[0].trim()];
-      this.ctx.fillStyle = color_map[n].hex;
+      var cm, e;
+      cm = color_map[trans[this.chord_name.split(" ")[0].trim()]];
+      try {
+        this.ctx.fillStyle = cm.hex;
+      } catch (_error) {
+        e = _error;
+      }
       return this.ctx.fillText(this.chord_name, 10, 50);
     };
 
@@ -253,14 +261,13 @@
   START_SONG = SILVER_DAGGER;
 
   CommaPlayer = (function() {
-    function CommaPlayer(fbc, comma_song, tempo, loop, low, high) {
+    function CommaPlayer(fbc, comma_song, metronome, loop, low, high) {
       this.fbc = fbc;
       this.comma_song = comma_song;
-      this.tempo = tempo;
+      this.metronome = metronome;
       this.loop = loop != null ? loop : false;
       this.low = low != null ? low : 20;
       this.high = high != null ? high : 100;
-      this.advance = __bind(this.advance, this);
       this.position = 0;
       this.calculate();
     }
@@ -268,25 +275,13 @@
     CommaPlayer.prototype.calculate = function() {
       this.chords = this.comma_song.split(",");
       this.chords.pop();
-      this.chord = this.chords[this.position] || this.chord;
-      this.beats_per_second = this.tempo / 60;
-      this.seconds_per_beat = 1 / this.beats_per_second;
-      return this.ms_per_beat = this.seconds_per_beat * 1000;
+      return this.chord = this.chords[this.position] || this.chord;
     };
 
-    CommaPlayer.prototype.start = function() {
-      var self;
-      self = this;
-      return this.timer = setInterval(function() {
-        return self.advance();
-      }, this.ms_per_beat);
-    };
-
-    CommaPlayer.prototype.stop = function() {
-      return clearInterval(this.timer);
-    };
-
-    CommaPlayer.prototype.advance = function() {
+    CommaPlayer.prototype.play = function(current_tick, time) {
+      if (current_tick % 24) {
+        return;
+      }
       if (this.position >= this.chords.length) {
         if (this.loop) {
           this.position = 0;
@@ -296,12 +291,7 @@
       }
       this.chord = (this.chords[this.position] || this.chord).trim();
       this.fbc.replace(this.chord);
-      this.play_beat();
       return this.position += 1;
-    };
-
-    CommaPlayer.prototype.play_beat = function() {
-      return console.log("Subclasses implement");
     };
 
     return CommaPlayer;
@@ -334,12 +324,16 @@
       return _ref;
     }
 
-    FullChordPlayer.prototype.play_beat = function() {
+    FullChordPlayer.prototype.play = function(current_tick, time, tempo, metronome) {
       var notes, sustain;
-      sustain = this.seconds_per_beat / 8;
+      FullChordPlayer.__super__.play.call(this, current_tick, time, tempo, metronome);
+      if (current_tick % 24) {
+        return;
+      }
+      sustain = metronome.seconds_per_tick * 24;
       notes = limit_notes(get_full_chord(this.chord), this.low, this.high);
-      MIDI.chordOn(0, notes, 40, 0);
-      return MIDI.chordOff(0, notes, sustain);
+      MIDI.chordOn(0, notes, 35, time);
+      return MIDI.chordOff(0, notes, time + sustain);
     };
 
     return FullChordPlayer;
@@ -354,12 +348,16 @@
       return _ref1;
     }
 
-    UpbeatChordPlayer.prototype.play_beat = function() {
+    UpbeatChordPlayer.prototype.play = function(current_tick, time, tempo, metronome) {
       var notes, start, sustain;
-      sustain = this.seconds_per_beat / 8;
-      start = this.seconds_per_beat / 2;
+      UpbeatChordPlayer.__super__.play.call(this, current_tick, time, tempo, metronome);
+      if ((current_tick + 12) % 24) {
+        return;
+      }
+      sustain = metronome.seconds_per_tick * 12;
+      start = time - metronome.audioContext.currentTime;
       notes = limit_notes(get_full_chord(this.chord), this.low, this.high);
-      MIDI.chordOn(0, notes, 40, start);
+      MIDI.chordOn(0, notes, 35, start);
       return MIDI.chordOff(0, notes, start + sustain);
     };
 
@@ -375,20 +373,18 @@
       return _ref2;
     }
 
-    RandomArpPlayer.prototype.play_beat = function() {
-      var notes, place, rand, sixteenth, sustain, _results;
-      sustain = this.seconds_per_beat / 2;
-      sixteenth = this.seconds_per_beat / 4;
-      notes = limit_notes(get_full_chord(this.chord), this.low, this.high);
-      place = 0;
-      _results = [];
-      while (place < this.seconds_per_beat) {
-        rand = notes[Math.floor(Math.random() * notes.length)];
-        MIDI.noteOn(0, rand, Math.random() * 127, place);
-        MIDI.noteOff(0, rand, place + sustain);
-        _results.push(place += sixteenth);
+    RandomArpPlayer.prototype.play = function(current_tick, time, tempo, metronome) {
+      var notes, rand, start, sustain;
+      RandomArpPlayer.__super__.play.call(this, current_tick, time, tempo, metronome);
+      if (current_tick % 6) {
+        return;
       }
-      return _results;
+      sustain = metronome.seconds_per_tick * 6;
+      start = time - metronome.audioContext.currentTime;
+      notes = limit_notes(get_full_chord(this.chord), this.low, this.high);
+      rand = notes[Math.floor(Math.random() * notes.length)];
+      MIDI.noteOn(0, rand, Math.random() * 127, start);
+      return MIDI.noteOff(0, rand, start + sustain);
     };
 
     return RandomArpPlayer;
@@ -408,9 +404,19 @@
     $scope.instruments = instruments;
     $scope.instrument = instruments["ukelele"];
     $scope.comma_song = START_SONG;
-    $scope.tempo = 42;
     $scope.limit_notes = false;
     $scope.loop = true;
+    $scope.tempo = 61;
+    $scope.metronome = new Metronome({
+      tempo: $scope.tempo,
+      lookahead: 20,
+      schedule_ahead_time: .1
+    });
+    $scope.tempo_change = function() {
+      $scope.metronome.stop();
+      $scope.metronome.tempo = $scope.tempo;
+      return $scope.metronome.start();
+    };
     $scope.instrument_change = function() {
       $scope.fb.strings = $scope.instrument;
       $scope.fbc.calculate();
@@ -418,7 +424,7 @@
     };
     $scope.limit_notes_change = function() {
       var p, _i, _len, _ref3, _results;
-      _ref3 = $scope.players;
+      _ref3 = $scope.metronome.players;
       _results = [];
       for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
         p = _ref3[_i];
@@ -434,8 +440,8 @@
     };
     $scope.comma_song_keyup = function() {
       var p, _i, _len, _ref3, _results;
-      if ($scope.players[0].comma_song !== $scope.comma_song) {
-        _ref3 = $scope.players;
+      if ($scope.metronome.players[0].comma_song !== $scope.comma_song) {
+        _ref3 = $scope.metronome.players;
         _results = [];
         for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
           p = _ref3[_i];
@@ -445,41 +451,11 @@
         return _results;
       }
     };
-    $scope.tempo_change = function() {
-      var p, _i, _len, _ref3, _results;
-      _ref3 = $scope.players;
-      _results = [];
-      for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-        p = _ref3[_i];
-        p.tempo = $scope.tempo;
-        p.stop();
-        p.calculate();
-        _results.push(p.start());
-      }
-      return _results;
-    };
-    $scope.loop_change = function() {
-      var p, _i, _len, _ref3, _results;
-      _ref3 = $scope.players;
-      _results = [];
-      for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-        p = _ref3[_i];
-        _results.push(p.loop = $scope.loop);
-      }
-      return _results;
-    };
     $scope.start = function() {
-      var p, _i, _len, _ref3, _results;
       $scope.fb = new Fretboard($scope.instrument);
       $scope.fbc = new FretboardCanvas("fretboard", $scope.fb);
-      $scope.players = [new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.tempo, $scope.loop), new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.tempo, $scope.loop)];
-      _ref3 = $scope.players;
-      _results = [];
-      for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-        p = _ref3[_i];
-        _results.push(p.start());
-      }
-      return _results;
+      $scope.metronome.players = [new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop), new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop)];
+      return $scope.metronome.start();
     };
     return MIDI.loadPlugin({
       soundfontUrl: "modules/MIDI.js/soundfont/",
