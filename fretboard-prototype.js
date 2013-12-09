@@ -430,7 +430,7 @@
         p = _ref3[_i];
         if ($scope.limit_notes) {
           p.low = Math.min.apply(null, $scope.instrument);
-          _results.push(p.high = (Math.min.apply(null, $scope.instrument)) + 12);
+          _results.push(p.high = (Math.max.apply(null, $scope.instrument)) + 12);
         } else {
           p.low = 20;
           _results.push(p.high = 100);

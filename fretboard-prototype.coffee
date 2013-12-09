@@ -327,7 +327,7 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
     for p in $scope.metronome.players
       if $scope.limit_notes
         p.low = Math.min.apply null, $scope.instrument
-        p.high = (Math.min.apply null, $scope.instrument) + 12
+        p.high = (Math.max.apply null, $scope.instrument) + 12
       else
         p.low = 20
         p.high = 100
