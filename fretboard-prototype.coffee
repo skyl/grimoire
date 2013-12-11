@@ -217,7 +217,7 @@ F,,,,,,,,Bb,,,,,,,,F,,,,,,,,G min,,,,,,,,
 Eb,,,,,,,C min,,,,,,,,G min,,,,Eb,,,,F,,,,,,,,
 """
 
-START_SONG = SILVER_DAGGER
+START_SONG = WAGON_WHEEL
 
 class CommaPlayer
 
@@ -308,16 +308,25 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
   $scope.limit_notes = false
   $scope.loop = true
 
-  $scope.tempo = 61
+  # Metronome init
+  $scope.lookahead = 20
+  $scope.tempo = 129
   $scope.metronome = new Metronome {
     tempo: $scope.tempo
-    lookahead: 20
+    lookahead: $scope.lookahead
     schedule_ahead_time: .1
   }
+  $scope.playing = $scope.metronome.playing
+
   $scope.tempo_change = () ->
-    $scope.metronome.stop()
     $scope.metronome.tempo = $scope.tempo
-    $scope.metronome.start()
+
+  $scope.click_play_pause = () ->
+    $scope.playing = $scope.metronome.is_playing = !scope.metronome.is_playing
+    if !$scope.playing
+      $scope.metronome.stop()
+    else
+      $scope.metronome.start()
 
   $scope.instrument_change = () ->
     $scope.fb.strings = $scope.instrument
@@ -336,7 +345,7 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
       for p in $scope.metronome.players
         p.comma_song = $scope.comma_song
         p.calculate()
-  $scope.start = () ->
+  $scope.init = () ->
     $scope.fb = new Fretboard $scope.instrument
     $scope.fbc = new FretboardCanvas "fretboard", $scope.fb
 
@@ -344,9 +353,15 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
       new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop),
       new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop)
     ]
+    $scope.fbc.replace $scope.comma_song.split(",")[0]
+
+  $scope.pause = () ->
+    $scope.metronome.stop()
+  $scope.play = () ->
     $scope.metronome.start()
+
   MIDI.loadPlugin {
     soundfontUrl: "modules/MIDI.js/soundfont/"
     instrument: "acoustic_grand_piano"
-    callback: $scope.start
+    callback: $scope.init
   }

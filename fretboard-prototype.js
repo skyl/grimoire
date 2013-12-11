@@ -258,7 +258,7 @@
 
   SILVER_DAGGER = "F,,,,,,,,Bb,,,,,,,,F,,,,,,,,G min,,,,,,,,\nEb,,,,,,,C min,,,,,,,,G min,,,,Eb,,,,F,,,,,,,,";
 
-  START_SONG = SILVER_DAGGER;
+  START_SONG = WAGON_WHEEL;
 
   CommaPlayer = (function() {
     function CommaPlayer(fbc, comma_song, metronome, loop, low, high) {
@@ -406,16 +406,24 @@
     $scope.comma_song = START_SONG;
     $scope.limit_notes = false;
     $scope.loop = true;
-    $scope.tempo = 61;
+    $scope.lookahead = 20;
+    $scope.tempo = 129;
     $scope.metronome = new Metronome({
       tempo: $scope.tempo,
-      lookahead: 20,
+      lookahead: $scope.lookahead,
       schedule_ahead_time: .1
     });
+    $scope.playing = $scope.metronome.playing;
     $scope.tempo_change = function() {
-      $scope.metronome.stop();
-      $scope.metronome.tempo = $scope.tempo;
-      return $scope.metronome.start();
+      return $scope.metronome.tempo = $scope.tempo;
+    };
+    $scope.click_play_pause = function() {
+      $scope.playing = $scope.metronome.is_playing = !scope.metronome.is_playing;
+      if (!$scope.playing) {
+        return $scope.metronome.stop();
+      } else {
+        return $scope.metronome.start();
+      }
     };
     $scope.instrument_change = function() {
       $scope.fb.strings = $scope.instrument;
@@ -451,16 +459,22 @@
         return _results;
       }
     };
-    $scope.start = function() {
+    $scope.init = function() {
       $scope.fb = new Fretboard($scope.instrument);
       $scope.fbc = new FretboardCanvas("fretboard", $scope.fb);
       $scope.metronome.players = [new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop), new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop)];
+      return $scope.fbc.replace($scope.comma_song.split(",")[0]);
+    };
+    $scope.pause = function() {
+      return $scope.metronome.stop();
+    };
+    $scope.play = function() {
       return $scope.metronome.start();
     };
     return MIDI.loadPlugin({
       soundfontUrl: "modules/MIDI.js/soundfont/",
       instrument: "acoustic_grand_piano",
-      callback: $scope.start
+      callback: $scope.init
     });
   });
 
