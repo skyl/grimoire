@@ -273,7 +273,7 @@ class UpbeatChordPlayer extends CommaPlayer
     sustain = metronome.seconds_per_tick * 12
     start = time - metronome.audioContext.currentTime
     notes = limit_notes(get_full_chord(@chord), @low, @high)
-    MIDI.chordOn(0, notes, 35, start)
+    MIDI.chordOn(0, notes, 30, start)
     MIDI.chordOff(0, notes, start + sustain)
 
 
@@ -291,6 +291,29 @@ class RandomArpPlayer extends CommaPlayer
     MIDI.noteOn(0, rand, Math.random() * 127, start)
     MIDI.noteOff(0, rand, start + sustain)
 
+window.midi_to_freq = (n) ->
+  n -= 57  # woo woo 57 == 440
+  Math.pow(2, n / 12) * 440
+
+class OscillatorPlayer extends CommaPlayer
+
+  play: (current_tick, time, tempo, metronome) ->
+    super current_tick, time, tempo, metronome
+    if (current_tick % 3)
+      return
+    notes = limit_notes(get_full_chord(@chord), @low, @high)
+    ac = metronome.audioContext
+    freq = midi_to_freq notes[Math.floor(Math.random() * notes.length)]
+    suss = (60 / tempo * .125)
+    osc = ac.createOscillator()
+    gNode = ac.createGain()
+    osc.connect gNode
+    gNode.gain.value = 0.05
+    gNode.connect ac.destination
+    osc.frequency.value = freq
+    osc.start time
+    osc.stop time + suss
+
 
 instruments = {
   "guitar": [40, 45, 50, 55, 59, 64],
@@ -304,13 +327,13 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
   window.scope = $scope
   $scope.instruments = instruments
   $scope.instrument = instruments["ukelele"]
-  $scope.comma_song = START_SONG
+  $scope.comma_song = I_ONCE_KNEW_A_PRETTY_GIRL
   $scope.limit_notes = false
   $scope.loop = true
 
   # Metronome init
   $scope.lookahead = 20
-  $scope.tempo = 129
+  $scope.tempo = 43
   $scope.metronome = new Metronome {
     tempo: $scope.tempo
     lookahead: $scope.lookahead
@@ -340,6 +363,7 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
       else
         p.low = 20
         p.high = 100
+
   $scope.comma_song_keyup = () ->
     if $scope.metronome.players[0].comma_song isnt $scope.comma_song
       for p in $scope.metronome.players
@@ -351,8 +375,10 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
 
     $scope.metronome.players = [
       new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop),
-      new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop)
+      new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop),
+      new OscillatorPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop, 0, 100),
     ]
+    $scope.limit_notes_change()
     $scope.fbc.replace $scope.comma_song.split(",")[0]
 
   $scope.pause = () ->
