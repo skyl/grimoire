@@ -1,5 +1,4 @@
-
-Get the submoudle and run a server with python:
+Get the submodules and run a server:
 
     git submodule init
     git submodule update

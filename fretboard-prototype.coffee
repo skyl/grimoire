@@ -35,11 +35,11 @@ chord_notes = {
 
   "major": [0, 2, 4, 5, 7, 9, 11],
   "a": [0, 2, 3, 5, 7, 8, 10],  # aeolian
-  "d": [0, 2, 3, 5, 7, 9, 10],  # whatever the d minor one is.
+  "d": [0, 2, 3, 5, 7, 9, 10],  # dorian
 
 }
 
-color_map = MusicTheory.Synesthesia.map()
+window.color_map = MusicTheory.Synesthesia.map()
 
 get_full_chord = (chord_name) ->
   split = chord_name.trim().split(" ")
@@ -89,7 +89,7 @@ class FretboardCanvas
 
   draw_fretboard: () ->
     @ctx.beginPath()
-    @ctx.strokeStyle = "red"
+    @ctx.strokeStyle = "gray"
     for x in @xs
       @ctx.moveTo x, @border
       @ctx.lineTo x, @height - @border
@@ -97,7 +97,7 @@ class FretboardCanvas
 
   draw_strings: () ->
     @ctx.beginPath()
-    @ctx.strokeStyle = "black"
+    @ctx.strokeStyle = "gold"
     @apart = (@height - @border * 2) / @num_strings
     @gutter = @border + @apart / 2
     wherey = @gutter
@@ -119,17 +119,14 @@ class FretboardCanvas
         else
           diff = Math.pow(@ratio, pos) * @fretwidth / 2
         @ctx.arc(@xs[pos] + diff, centery, radius, 0, 2 * Math.PI)
-        @ctx.fillStyle = color_map[@fretboard.strings[i] + pos].hex
+        @ctx.fillStyle = color_map[(@fretboard.strings[i] + pos) % 88].hex
         @ctx.fill()
         @ctx.stroke()
       centery += @apart
 
   draw_text: () ->
-    cm = color_map[trans[@chord_name.split(" ")[0].trim()]]
-    try
-      # can be undefined if with bad input
-      @ctx.fillStyle = cm.hex
-    catch e
+    # color_map has 89 keys
+    @ctx.fillStyle = color_map[trans[@chord_name.split(" ")[0].trim()] % 88]
     @ctx.fillText(@chord_name, 10, 50)
 
   replace: (chord_name) ->
@@ -319,6 +316,7 @@ instruments = {
   "guitar": [40, 45, 50, 55, 59, 64],
   "bass": [28, 33, 38, 43],
   "ukelele": [67, 60, 64, 69],
+  "mandolin": [55, 62, 69, 76],
 }
 
 window.fretboardApp = angular.module 'fretboardApp', []
@@ -333,7 +331,7 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
 
   # Metronome init
   $scope.lookahead = 20
-  $scope.tempo = 43
+  $scope.tempo = 23
   $scope.metronome = new Metronome {
     tempo: $scope.tempo
     lookahead: $scope.lookahead
@@ -359,7 +357,9 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
     for p in $scope.metronome.players
       if $scope.limit_notes
         p.low = Math.min.apply null, $scope.instrument
-        p.high = (Math.max.apply null, $scope.instrument) + 12
+        p.high = Math.min(
+          (Math.max.apply null, $scope.instrument) + 12
+        )
       else
         p.low = 20
         p.high = 100
