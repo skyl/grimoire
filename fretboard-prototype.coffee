@@ -313,10 +313,11 @@ class OscillatorPlayer extends CommaPlayer
 
 
 instruments = {
-  "guitar": [40, 45, 50, 55, 59, 64],
   "bass": [28, 33, 38, 43],
-  "ukelele": [67, 60, 64, 69],
+  "cuatro": [57, 64, 68, 59],
+  "guitar": [40, 45, 50, 55, 59, 64],
   "mandolin": [55, 62, 69, 76],
+  "ukelele": [67, 60, 64, 69],
 }
 
 window.fretboardApp = angular.module 'fretboardApp', []
