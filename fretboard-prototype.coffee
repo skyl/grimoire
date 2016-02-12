@@ -381,17 +381,17 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
 
   $scope.limit_notes_change = () ->
     instrL = $scope.instruments[$scope.instrument]
+    set_search 'limit_notes', $scope.limit_notes
     for p in $scope.metronome.players
       if $scope.limit_notes
         p.low = Math.min.apply null, instrL
         p.high = Math.min(
           (Math.max.apply null, instrL) + 12
         )
-        set_search 'limit_notes', true
       else
         p.low = 20
         p.high = 100
-        set_search 'limit_notes', $scope.limit_notes
+
 
   $scope.comma_song_keyup = () ->
     set_search 'comma_song', $scope.comma_song

@@ -483,18 +483,17 @@
     $scope.limit_notes_change = function() {
       var instrL, j, len, p, ref, results;
       instrL = $scope.instruments[$scope.instrument];
+      set_search('limit_notes', $scope.limit_notes);
       ref = $scope.metronome.players;
       results = [];
       for (j = 0, len = ref.length; j < len; j++) {
         p = ref[j];
         if ($scope.limit_notes) {
           p.low = Math.min.apply(null, instrL);
-          p.high = Math.min((Math.max.apply(null, instrL)) + 12);
-          results.push(set_search('limit_notes', true));
+          results.push(p.high = Math.min((Math.max.apply(null, instrL)) + 12));
         } else {
           p.low = 20;
-          p.high = 100;
-          results.push(set_search('limit_notes', $scope.limit_notes));
+          results.push(p.high = 100);
         }
       }
       return results;
