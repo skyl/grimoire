@@ -447,6 +447,7 @@
         return search[k] = DEFAULTS[k];
       }
     });
+    search.comma_song = search.comma_song.replace(/\+/g, ' ');
     $location.search(search);
     angular.extend($scope, search);
     $scope.metronome = new Metronome({

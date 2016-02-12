@@ -345,6 +345,9 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
   search = $location.search()
   Object.keys(DEFAULTS).forEach (k) ->
     if not search[k] then search[k] = DEFAULTS[k]
+  # sharing on FB is messed up
+  # maybe try to upgrade angular? custom encode/decode?
+  search.comma_song = search.comma_song.replace(/\+/g, ' ')
   $location.search(search)
   angular.extend($scope, search)
 
