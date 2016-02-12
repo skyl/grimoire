@@ -278,7 +278,7 @@ class RandomArpPlayer extends CommaPlayer
 
   play: (current_tick, time, tempo, metronome) ->
     super current_tick, time, tempo, metronome
-    if (current_tick % 6)
+    if (current_tick % 12)
       return
     # 16th
     sustain = metronome.seconds_per_tick * 6
@@ -292,11 +292,14 @@ window.midi_to_freq = (n) ->
   n -= 57  # woo woo 57 == 440
   Math.pow(2, n / 12) * 440
 
+
+
+# getOsc
 class OscillatorPlayer extends CommaPlayer
 
   play: (current_tick, time, tempo, metronome) ->
     super current_tick, time, tempo, metronome
-    if (current_tick % 3)
+    if (current_tick % 6)
       return
     notes = limit_notes(get_full_chord(@chord), @low, @high)
     ac = metronome.audioContext
@@ -391,11 +394,11 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
         set_search 'limit_notes', $scope.limit_notes
 
   $scope.comma_song_keyup = () ->
-    $location.hash($scope.comma_song)
-    if $scope.metronome.players[0].comma_song isnt $scope.comma_song
-      for p in $scope.metronome.players
-        p.comma_song = $scope.comma_song
-        p.calculate()
+    set_search 'comma_song', $scope.comma_song
+    # if $scope.metronome.players[0].comma_song isnt $scope.comma_song
+    for p in $scope.metronome.players
+      p.comma_song = $scope.comma_song
+      p.calculate()
 
   $scope.init = () ->
     $scope.fb = new Fretboard $scope.instruments[$scope.instrument]

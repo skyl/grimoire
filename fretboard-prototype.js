@@ -367,7 +367,7 @@
     RandomArpPlayer.prototype.play = function(current_tick, time, tempo, metronome) {
       var notes, rand, start, sustain;
       RandomArpPlayer.__super__.play.call(this, current_tick, time, tempo, metronome);
-      if (current_tick % 6) {
+      if (current_tick % 12) {
         return;
       }
       sustain = metronome.seconds_per_tick * 6;
@@ -397,7 +397,7 @@
     OscillatorPlayer.prototype.play = function(current_tick, time, tempo, metronome) {
       var ac, freq, gNode, notes, osc, suss;
       OscillatorPlayer.__super__.play.call(this, current_tick, time, tempo, metronome);
-      if (current_tick % 3) {
+      if (current_tick % 6) {
         return;
       }
       notes = limit_notes(get_full_chord(this.chord), this.low, this.high);
@@ -501,17 +501,15 @@
     };
     $scope.comma_song_keyup = function() {
       var j, len, p, ref, results;
-      $location.hash($scope.comma_song);
-      if ($scope.metronome.players[0].comma_song !== $scope.comma_song) {
-        ref = $scope.metronome.players;
-        results = [];
-        for (j = 0, len = ref.length; j < len; j++) {
-          p = ref[j];
-          p.comma_song = $scope.comma_song;
-          results.push(p.calculate());
-        }
-        return results;
+      set_search('comma_song', $scope.comma_song);
+      ref = $scope.metronome.players;
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        p = ref[j];
+        p.comma_song = $scope.comma_song;
+        results.push(p.calculate());
       }
+      return results;
     };
     $scope.init = function() {
       $scope.fb = new Fretboard($scope.instruments[$scope.instrument]);
