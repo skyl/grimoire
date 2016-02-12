@@ -322,25 +322,29 @@ instruments = {
 
 window.fretboardApp = angular.module 'fretboardApp', []
 fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
-
-
-  if not $location.hash()
-    $location.hash(START_SONG)
-    $scope.comma_song = START_SONG
-  else
-    $scope.comma_song = $location.hash()
-
-
+  # debug
   window.$location = $location
   window.$scope = $scope
+  # constants
   $scope.instruments = instruments
-  $scope.instrument = $location.search().instrument or "ukelele"
-  $scope.limit_notes = false
-  $scope.loop = true
 
-  # Metronome init
-  $scope.lookahead = 20
-  $scope.tempo = $location.search().tempo or 23
+  DEFAULTS = {
+    instrument: "guitar"
+    comma_song: START_SONG
+    limit_notes: false
+    tempo: 45
+    # questionables for revamp
+    loop: true
+    # metronome init?
+    lookahead: 20
+    # playing: false
+  }
+  search = $location.search()
+  Object.keys(DEFAULTS).forEach (k) ->
+    if not search[k] then search[k] = DEFAULTS[k]
+  $location.search(search)
+  angular.extend($scope, search)
+
   $scope.metronome = new Metronome {
     tempo: $scope.tempo
     lookahead: $scope.lookahead
@@ -348,10 +352,13 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
   }
   $scope.playing = $scope.metronome.playing
 
-  $scope.tempo_change = () ->
+  set_search = (key, value) ->
     search = $location.search()
-    search.tempo = $scope.tempo
-    $location.search(search)
+    search[key] = value
+    $location.search search
+
+  $scope.tempo_change = () ->
+    set_search "tempo", $scope.tempo
     $scope.metronome.tempo = $scope.tempo
 
   $scope.click_play_pause = () ->
@@ -377,9 +384,11 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
         p.high = Math.min(
           (Math.max.apply null, instrL) + 12
         )
+        set_search 'limit_notes', true
       else
         p.low = 20
         p.high = 100
+        set_search 'limit_notes', $scope.limit_notes
 
   $scope.comma_song_keyup = () ->
     $location.hash($scope.comma_song)
