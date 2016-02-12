@@ -488,7 +488,7 @@
       results = [];
       for (j = 0, len = ref.length; j < len; j++) {
         p = ref[j];
-        if ($scope.limit_notes) {
+        if (String($scope.limit_notes) === 'true') {
           p.low = Math.min.apply(null, instrL);
           results.push(p.high = Math.min((Math.max.apply(null, instrL)) + 12));
         } else {
