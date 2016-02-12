@@ -321,18 +321,26 @@ instruments = {
 }
 
 window.fretboardApp = angular.module 'fretboardApp', []
-fretboardApp.controller 'FretboardChanger', ($scope) ->
+fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
 
-  window.scope = $scope
+
+  if not $location.hash()
+    $location.hash(START_SONG)
+    $scope.comma_song = START_SONG
+  else
+    $scope.comma_song = $location.hash()
+
+
+  window.$location = $location
+  window.$scope = $scope
   $scope.instruments = instruments
-  $scope.instrument = instruments["ukelele"]
-  $scope.comma_song = I_ONCE_KNEW_A_PRETTY_GIRL
+  $scope.instrument = $location.search().instrument or "ukelele"
   $scope.limit_notes = false
   $scope.loop = true
 
   # Metronome init
   $scope.lookahead = 20
-  $scope.tempo = 23
+  $scope.tempo = $location.search().tempo or 23
   $scope.metronome = new Metronome {
     tempo: $scope.tempo
     lookahead: $scope.lookahead
@@ -341,37 +349,47 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
   $scope.playing = $scope.metronome.playing
 
   $scope.tempo_change = () ->
+    search = $location.search()
+    search.tempo = $scope.tempo
+    $location.search(search)
     $scope.metronome.tempo = $scope.tempo
 
   $scope.click_play_pause = () ->
-    $scope.playing = $scope.metronome.is_playing = !scope.metronome.is_playing
+    $scope.playing = $scope.metronome.is_playing = !$scope.metronome.is_playing
     if !$scope.playing
       $scope.metronome.stop()
     else
       $scope.metronome.start()
 
   $scope.instrument_change = () ->
-    $scope.fb.strings = $scope.instrument
+    $scope.fb.strings = $scope.instruments[$scope.instrument]
     $scope.fbc.calculate()
     $scope.limit_notes_change()
+    search = $location.search()
+    search.instrument = $scope.instrument
+    $location.search(search)
+
   $scope.limit_notes_change = () ->
+    instrL = $scope.instruments[$scope.instrument]
     for p in $scope.metronome.players
       if $scope.limit_notes
-        p.low = Math.min.apply null, $scope.instrument
+        p.low = Math.min.apply null, instrL
         p.high = Math.min(
-          (Math.max.apply null, $scope.instrument) + 12
+          (Math.max.apply null, instrL) + 12
         )
       else
         p.low = 20
         p.high = 100
 
   $scope.comma_song_keyup = () ->
+    $location.hash($scope.comma_song)
     if $scope.metronome.players[0].comma_song isnt $scope.comma_song
       for p in $scope.metronome.players
         p.comma_song = $scope.comma_song
         p.calculate()
+
   $scope.init = () ->
-    $scope.fb = new Fretboard $scope.instrument
+    $scope.fb = new Fretboard $scope.instruments[$scope.instrument]
     $scope.fbc = new FretboardCanvas "fretboard", $scope.fb
 
     $scope.metronome.players = [
@@ -392,3 +410,6 @@ fretboardApp.controller 'FretboardChanger', ($scope) ->
     instrument: "acoustic_grand_piano"
     callback: $scope.init
   }
+
+fretboardApp.config ($locationProvider) ->
+  $locationProvider.html5Mode(true).hashPrefix('!')

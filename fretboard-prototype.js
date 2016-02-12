@@ -428,15 +428,21 @@
 
   window.fretboardApp = angular.module('fretboardApp', []);
 
-  fretboardApp.controller('FretboardChanger', function($scope) {
-    window.scope = $scope;
+  fretboardApp.controller('FretboardChanger', function($scope, $location) {
+    if (!$location.hash()) {
+      $location.hash(START_SONG);
+      $scope.comma_song = START_SONG;
+    } else {
+      $scope.comma_song = $location.hash();
+    }
+    window.$location = $location;
+    window.$scope = $scope;
     $scope.instruments = instruments;
-    $scope.instrument = instruments["ukelele"];
-    $scope.comma_song = I_ONCE_KNEW_A_PRETTY_GIRL;
+    $scope.instrument = $location.search().instrument || "ukelele";
     $scope.limit_notes = false;
     $scope.loop = true;
     $scope.lookahead = 20;
-    $scope.tempo = 23;
+    $scope.tempo = $location.search().tempo || 23;
     $scope.metronome = new Metronome({
       tempo: $scope.tempo,
       lookahead: $scope.lookahead,
@@ -444,10 +450,14 @@
     });
     $scope.playing = $scope.metronome.playing;
     $scope.tempo_change = function() {
+      var search;
+      search = $location.search();
+      search.tempo = $scope.tempo;
+      $location.search(search);
       return $scope.metronome.tempo = $scope.tempo;
     };
     $scope.click_play_pause = function() {
-      $scope.playing = $scope.metronome.is_playing = !scope.metronome.is_playing;
+      $scope.playing = $scope.metronome.is_playing = !$scope.metronome.is_playing;
       if (!$scope.playing) {
         return $scope.metronome.stop();
       } else {
@@ -455,19 +465,24 @@
       }
     };
     $scope.instrument_change = function() {
-      $scope.fb.strings = $scope.instrument;
+      var search;
+      $scope.fb.strings = $scope.instruments[$scope.instrument];
       $scope.fbc.calculate();
-      return $scope.limit_notes_change();
+      $scope.limit_notes_change();
+      search = $location.search();
+      search.instrument = $scope.instrument;
+      return $location.search(search);
     };
     $scope.limit_notes_change = function() {
-      var j, len, p, ref, results;
+      var instrL, j, len, p, ref, results;
+      instrL = $scope.instruments[$scope.instrument];
       ref = $scope.metronome.players;
       results = [];
       for (j = 0, len = ref.length; j < len; j++) {
         p = ref[j];
         if ($scope.limit_notes) {
-          p.low = Math.min.apply(null, $scope.instrument);
-          results.push(p.high = Math.min((Math.max.apply(null, $scope.instrument)) + 12));
+          p.low = Math.min.apply(null, instrL);
+          results.push(p.high = Math.min((Math.max.apply(null, instrL)) + 12));
         } else {
           p.low = 20;
           results.push(p.high = 100);
@@ -477,6 +492,7 @@
     };
     $scope.comma_song_keyup = function() {
       var j, len, p, ref, results;
+      $location.hash($scope.comma_song);
       if ($scope.metronome.players[0].comma_song !== $scope.comma_song) {
         ref = $scope.metronome.players;
         results = [];
@@ -489,7 +505,7 @@
       }
     };
     $scope.init = function() {
-      $scope.fb = new Fretboard($scope.instrument);
+      $scope.fb = new Fretboard($scope.instruments[$scope.instrument]);
       $scope.fbc = new FretboardCanvas("fretboard", $scope.fb);
       $scope.metronome.players = [new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop), new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop), new OscillatorPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop, 0, 100)];
       $scope.limit_notes_change();
@@ -506,6 +522,10 @@
       instrument: "acoustic_grand_piano",
       callback: $scope.init
     });
+  });
+
+  fretboardApp.config(function($locationProvider) {
+    return $locationProvider.html5Mode(true).hashPrefix('!');
   });
 
 }).call(this);
