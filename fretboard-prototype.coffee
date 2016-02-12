@@ -304,7 +304,7 @@ class OscillatorPlayer extends CommaPlayer
     notes = limit_notes(get_full_chord(@chord), @low, @high)
     ac = metronome.audioContext
     freq = midi_to_freq notes[Math.floor(Math.random() * notes.length)]
-    suss = (60 / tempo * .125)
+    suss = (120 / tempo * .125)
     osc = ac.createOscillator()
     gNode = ac.createGain()
     osc.connect gNode
