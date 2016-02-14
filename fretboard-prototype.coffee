@@ -129,8 +129,12 @@ class FretboardCanvas
     @ctx.fillStyle = color_map[trans[@chord_name.split(" ")[0].trim()] % 88]
     @ctx.fillText(@chord_name, 10, 50)
 
-  replace: (chord_name) ->
+  clear: () =>
     @ctx.clearRect 0, 0, @width, @height
+
+  replace: (chord_name) ->
+    @clear()
+    chord_name = chord_name or @chord_name
     @fb_state = @fretboard.get(chord_name)
     @chord_name = chord_name
     @draw()
@@ -169,60 +173,19 @@ class Fretboard
       ret.push sret
     ret
 
-
-TWINKLE = """
-C,,,,,,,,F,,,,C,,,,F,,,,C,,,,G,,,,C,,,,
-C,,,,F,,,,C,,,,G,,,,
-C,,,,F,,,,C,,,,G,,,,
-"""
-
-I_ONCE_KNEW_A_PRETTY_GIRL = '''
-G min,,,,,,C min,,,,,
-G min,,,Bb maj,,,D 7,,,G min,,,
-G min,,,D 7,,,G min,,,
-G min,,,,,,,,,,
-C min,,,,,,,,
-G min,,,,,,,,
-D,,,,,,,,
-G min,,,,,,,,
-D 7,,,,,,,,
-G min,,,,,,,,
-'''
-
-STARIN_AT_THE_WALLS = '''
-B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,,,
-B,,,,,,,,B maj7,,,,,,,,B 7,,,,,,,,E,,,E 7,,,,,
-F#,,,,E,,,,G,,,,B,,,,F#,,,,E,,,,D,,,B,,,,,
-F#,,,,E,,,,D,,F#,,,,,,B,,,,
-'''
-
-WAGON_WHEEL = "C,,G,,A min,,F,,"
-
-BASIC_MINOR_SONG = """
-C min,,G min,,
-C min,,G min,,
-C min,,G min,,
-F min,,G min,,
-C min,,G min,,
-Eb,,G min,,
-C min,,G min,,
-F min,,Bb,,
-"""
-MOST_BASIC_SONG = "C,,G,,"
-SILVER_DAGGER = """
-F,,,,,,,,Bb,,,,,,,,F,,,,,,,,G min,,,,,,,,
-Eb,,,,,,,C min,,,,,,,,G min,,,,Eb,,,,F,,,,,,,,
-"""
-
-START_SONG = WAGON_WHEEL
+DEFAULT_SONG = "C,,G 7,,A min7,,F,,"
 
 class CommaPlayer
 
-  constructor: (@fbc, @comma_song, @metronome, @loop=false, @low=20, @high=100) ->
+  # TODO: standard options?
+  constructor: (@comma_song, @metronome, @scope, @options) ->
     @position = 0
     @calculate()
+    @options = @options or {}
 
   calculate: () ->
+    # remove new lines
+    @comma_song = @comma_song.replace(/(\r\n|\n|\r)/gm, "")
     @chords = @comma_song.split(",")
     @chords.pop()  # trailing comma ..
     @chord = @chords[@position] || @chord
@@ -236,13 +199,18 @@ class CommaPlayer
     # if we wanted to be exact, we would need to schedule the
     # canvas to replace after waiting time - currentTime seconds.
     if @position >= @chords.length
-      if @loop
-        @position = 0
-      else
-        @stop()
+      @position = 0
+
     @chord = (@chords[@position] || @chord).trim()
-    @fbc.replace(@chord)
     @position += 1
+
+
+class FretboardCommaPlayer extends CommaPlayer
+  # must set fbc before calling play :/
+  play: (current_tick, time, tempo, metronome) ->
+    super current_tick, time, tempo, metronome
+    if (not (current_tick % 24))
+      @fbc.replace(@chord)
 
 
 limit_notes = (notes, low=20, high=100) ->
@@ -265,6 +233,8 @@ class UpbeatChordPlayer extends CommaPlayer
 
   play: (current_tick, time, tempo, metronome) ->
     super current_tick, time, tempo, metronome
+    if @off
+      return
     if (current_tick + 12 ) % 24
       return
     sustain = metronome.seconds_per_tick * 12
@@ -299,20 +269,29 @@ class OscillatorPlayer extends CommaPlayer
 
   play: (current_tick, time, tempo, metronome) ->
     super current_tick, time, tempo, metronome
-    if (current_tick % 6)
+
+    if @off
       return
+
+    if (current_tick % (@options.tick_multiple or 6))
+      return
+
+    @options.sustain = @options.sustain or 2
+    sustain = 60 * @options.sustain / tempo * 0.125
+    @options.gain = @options.gain or 0.2
+    gain = @options.gain / 10
+
     notes = limit_notes(get_full_chord(@chord), @low, @high)
     ac = metronome.audioContext
     freq = midi_to_freq notes[Math.floor(Math.random() * notes.length)]
-    suss = (120 / tempo * .125)
     osc = ac.createOscillator()
     gNode = ac.createGain()
     osc.connect gNode
-    gNode.gain.value = 0.05
+    gNode.gain.value = gain
     gNode.connect ac.destination
     osc.frequency.value = freq
     osc.start time
-    osc.stop time + suss
+    osc.stop time + sustain
 
 
 instruments = {
@@ -333,7 +312,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
 
   DEFAULTS = {
     instrument: "guitar"
-    comma_song: START_SONG
+    comma_song: DEFAULT_SONG
     limit_notes: false
     tempo: 45
     # questionables for revamp
@@ -341,11 +320,15 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     # metronome init?
     lookahead: 20
     # playing: false
+    oscillator_on: true
+    oscillator_sustain: 2
+    oscillator_gain: 0.2
+    oscillator_tick_multiple: 6
   }
   search = $location.search()
   Object.keys(DEFAULTS).forEach (k) ->
     if not search[k] then search[k] = DEFAULTS[k]
-  # sharing on FB is messed up
+  # some sites erroneously encode %20 to +
   # maybe try to upgrade angular? custom encode/decode?
   search.comma_song = search.comma_song.replace(/\+/g, ' ')
   $location.search(search)
@@ -377,6 +360,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
   $scope.instrument_change = () ->
     $scope.fb.strings = $scope.instruments[$scope.instrument]
     $scope.fbc.calculate()
+    $scope.fbc.replace()
     $scope.limit_notes_change()
     search = $location.search()
     search.instrument = $scope.instrument
@@ -395,7 +379,6 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
         p.low = 20
         p.high = 100
 
-
   $scope.comma_song_keyup = () ->
     set_search 'comma_song', $scope.comma_song
     # if $scope.metronome.players[0].comma_song isnt $scope.comma_song
@@ -403,14 +386,47 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
       p.comma_song = $scope.comma_song
       p.calculate()
 
+
+  $scope.oscillator_on_change = () ->
+    $scope.oscillator_player.off = !$scope.oscillator_on
+
+  $scope.oscillator_sustain_change = () ->
+    $scope.oscillator_player.options.sustain =
+      Number($scope.oscillator_sustain)
+
+  $scope.oscillator_gain_change = () ->
+    $scope.oscillator_player.options.gain =
+      Number($scope.oscillator_gain)
+
+  $scope.oscillator_tick_multiple_change = () ->
+    $scope.oscillator_player.options.tick_multiple =
+      Number($scope.oscillator_tick_multiple)
+
+  $scope.chords_on_change = () ->
+    $scope.chord_player.off = !$scope.chords_on
+
+
   $scope.init = () ->
     $scope.fb = new Fretboard $scope.instruments[$scope.instrument]
     $scope.fbc = new FretboardCanvas "fretboard", $scope.fb
 
+    # why am I passing this `$scope.loop` around everywhere like this?
+    $scope.fbcp = new FretboardCommaPlayer(
+      $scope.comma_song, $scope.metronome, $scope.loop)
+    $scope.fbcp.fbc = $scope.fbc
+
+    $scope.oscillator_player = new OscillatorPlayer(
+      $scope.comma_song, $scope.metronome, $scope)
+
+    $scope.chord_player = new UpbeatChordPlayer(
+      $scope.comma_song, $scope.metronome, $scope)
+
+
     $scope.metronome.players = [
-      new UpbeatChordPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop),
-      new RandomArpPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop),
-      new OscillatorPlayer($scope.fbc, $scope.comma_song, $scope.metronome, $scope.loop, 0, 100),
+      $scope.fbcp
+      new RandomArpPlayer($scope.comma_song, $scope.metronome, $scope)
+      $scope.chord_player
+      $scope.oscillator_player
     ]
     $scope.limit_notes_change()
     $scope.fbc.replace $scope.comma_song.split(",")[0]

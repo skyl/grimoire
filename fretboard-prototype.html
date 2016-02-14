@@ -50,6 +50,58 @@
         <textarea ng-model="comma_song" ng-keyup="comma_song_keyup()"></textarea>
       </div>
 
+      <div class="oscillator">
+        <div class="input">
+          <input type="checkbox"
+            ng-model="oscillator_on"
+            ng-change="oscillator_on_change()">
+        </div>
+        <div class="input">
+          <input
+            ng-model="oscillator_tick_multiple"
+            ng-change="oscillator_tick_multiple_change()"
+            type="range"
+            min="1"
+            max="48"
+            step="1"
+          >
+          ({{ oscillator_tick_multiple }})
+        </div>
+        <div class="input">
+          <input
+            ng-model="oscillator_gain"
+            ng-change="oscillator_gain_change()"
+            type="range"
+            min="0.01"
+            max="0.50"
+            step="0.01"
+          >
+          ({{ oscillator_gain }})
+        </div>
+        <div class="input">
+          <input
+            ng-model="oscillator_sustain"
+            ng-change="oscillator_sustain_change()"
+            type="range"
+            min="1"
+            max="12"
+          >
+          ({{ oscillator_sustain }})
+        </div>
+      </div>
+
+      <div class="chords">
+        <div class="input">
+          <input type="checkbox"
+            ng-model="chords_on"
+            ng-change="chords_on_change()">
+        </div>
+      </div>
+
+
+
+
+
     </div>
     <canvas id="fretboard" class="full">
   </body>
