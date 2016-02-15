@@ -347,37 +347,31 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
   $scope.instruments = instruments
   $scope.chords_pattern_choices = patternMap
 
-  DEFAULTS = {
-    instrument: "guitar"
-    comma_song: DEFAULT_SONG
-    # limit_notes: false
-    tempo: 48
-    # questionables for revamp
-    loop: true
-    # metronome init?
-    lookahead: 20
-    # playing: false
-    oscillator_on: true
-    oscillator_gain: 0.15
-    oscillator_sustain: 2
-    oscillator_low: 20
-    oscillator_high: 60
-    oscillator_tick_multiple: 6
-    chords_on: true
-    chords_volume: 30
-    chords_sustain_ticks: 24
-    chords_low: 58
-    chords_high: 88
-    chords_pattern: 'whole'
-    # UpbeatChordPlayer is hard coded?
-    # chords_tick_multiple:
+  DEFAULTS =
+    arp_high: 110
+    arp_low: 20
     arp_on: true
-    arp_volume: 100
-    arp_sustain_ticks: 6
-    arp_low: 24
-    arp_high: 78
-    arp_tick_multiple: 12
-  }
+    arp_sustain_ticks: "3"
+    arp_tick_multiple: "3"
+    arp_volume: "200"
+    chords_high: 110
+    chords_low: 38
+    chords_on: true
+    chords_pattern: "rhumba"
+    chords_sustain_ticks: "2"
+    chords_volume: "48"
+    comma_song: "C,,G dim7,,"
+    instrument: "guitar"
+    lookahead: "20"
+    loop: true
+    oscillator_gain: "2.1"
+    oscillator_high: 60
+    oscillator_low: 20
+    oscillator_on: true
+    oscillator_sustain: "2"
+    oscillator_tick_multiple: "6"
+    tempo: "95"
+
   search = $location.search()
   Object.keys(DEFAULTS).forEach (k) ->
     if not search[k] then search[k] = DEFAULTS[k]
