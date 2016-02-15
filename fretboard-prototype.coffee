@@ -217,16 +217,33 @@ limit_notes = (notes, low=20, high=100) ->
   (n for n in notes when high >= n >= low)
 
 
+
+patternMap = {
+  up: (current_tick) -> (current_tick + 12) % 24
+  down: (current_tick) -> current_tick % 24
+  half: (current_tick) -> current_tick % 48
+  whole: (current_tick) -> current_tick % 96
+  samba: (current_tick) ->
+    return not ([0, 18, 36, 60, 72].indexOf(current_tick % 96) > -1)
+  rhumba: (current_tick) ->
+    return not ([0, 18, 42, 60, 72].indexOf(current_tick % 96) > -1)
+
+}
+
 class UpbeatChordPlayer extends CommaPlayer
 
   play: (current_tick, time, tempo, metronome) ->
     super current_tick, time, tempo, metronome
     if @off
       return
-    if (current_tick + 12) % 24
-      return
     if @options.volume is 0
       return
+
+    pattern = @options.pattern or 'up'
+    if patternMap[pattern](current_tick)
+      return
+
+
     volume = @options.volume or 30
     sustain_ticks = @options.sustain_ticks or 12
     sustain = metronome.seconds_per_tick * sustain_ticks
@@ -308,8 +325,6 @@ class OscillatorPlayer extends CommaPlayer
     osc.connect gNode
     gNode.gain.value = gain
     gNode.connect ac.destination
-    osc.connect ac.destination
-    # console.log('starting!');
     osc.frequency.value = freq
     osc.start time
     osc.stop time + sustain
@@ -330,6 +345,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
   window.$scope = $scope
   # constants
   $scope.instruments = instruments
+  $scope.chords_pattern_choices = patternMap
 
   DEFAULTS = {
     instrument: "guitar"
@@ -352,6 +368,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     chords_sustain_ticks: 24
     chords_low: 58
     chords_high: 88
+    chords_pattern: 'whole'
     # UpbeatChordPlayer is hard coded?
     # chords_tick_multiple:
     arp_on: true
@@ -478,6 +495,9 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     $scope.chord_player.options.high =
       Number($scope.chords_high)
     set_search('chords_high')
+  $scope.chords_pattern_change = () ->
+    $scope.chord_player.options.pattern = $scope.chords_pattern
+    set_search('chords_pattern')
 
   # arp
   $scope.arp_on_change = () ->
@@ -539,6 +559,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     $scope.chords_sustain_ticks_change()
     $scope.chords_low_change()
     $scope.chords_high_change()
+    $scope.chords_pattern_change()
     $scope.arp_on_change()
     $scope.arp_volume_change()
     $scope.arp_sustain_ticks_change()

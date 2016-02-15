@@ -149,6 +149,14 @@
           >
           H({{ chords_high }})
         </div>
+        <div class="input" style="width: 8em;">
+          <select style="width: 100%;"
+            ng-change="chords_pattern_change()"
+            ng-model="chords_pattern"
+            ng-options="key as key for (key, value) in chords_pattern_choices"
+          >
+          </select>
+        </div>
 
       </div>
 
