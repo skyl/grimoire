@@ -56,7 +56,7 @@
             ng-change="oscillator_gain_change()"
             type="range"
             min="0.1"
-            max="5.00"
+            max="10.00"
             step="0.1"
           >
           V({{ oscillator_gain }})
@@ -67,7 +67,7 @@
             ng-change="oscillator_sustain_change()"
             type="range"
             min="1"
-            max="12"
+            max="96"
           >
           S({{ oscillator_sustain }})
         </div>
@@ -95,7 +95,7 @@
             ng-change="oscillator_tick_multiple_change()"
             type="range"
             min="1"
-            max="48"
+            max="96"
             step="1"
           >
           T({{ oscillator_tick_multiple }})
@@ -158,6 +158,22 @@
           </select>
         </div>
 
+        <div class="input">
+          <input
+            ng-model="chords_random"
+            ng-change="chords_random_change()"
+            type="range"
+            min="0.01"
+            max="1.0"
+            step="0.01"
+          >
+          R({{ chords_random }})
+        </div>
+
+
+
+
+
       </div>
 
 
@@ -188,6 +204,15 @@
             max="96"
           >
           S({{ arp_sustain_ticks }})
+          <input
+            ng-model="arp_sustain_random"
+            ng-change="arp_sustain_random_change()"
+            type="range"
+            min="0.0"
+            max="1"
+            step="0.01"
+          >
+          SR({{ arp_sustain_random }})
         </div>
         <div class="input">
           <input
@@ -218,6 +243,29 @@
           >
           T({{ arp_tick_multiple }})
         </div>
+        <div class="input">
+          <input
+            ng-model="arp_play_prob"
+            ng-change="arp_play_prob_change()"
+            type="range"
+            min="0.01"
+            max="1"
+            step="0.01"
+          >
+          p({{ arp_play_prob }})
+        </div>
+        <div class="input">
+          <input
+            ng-model="arp_p_double"
+            ng-change="arp_p_double_change()"
+            type="range"
+            min="0.01"
+            max="1"
+            step="0.01"
+          >
+          px2({{ arp_p_double }})
+        </div>
+
       </div>
 
 

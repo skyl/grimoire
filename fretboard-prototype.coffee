@@ -38,6 +38,9 @@ chord_notes = {
   "d": [0, 2, 3, 5, 7, 9, 10],  # dorian
 
 }
+binran = (p=0.5) ->
+  return Math.random() < p
+
 
 window.color_map = MusicTheory.Synesthesia.map()
 
@@ -221,7 +224,9 @@ limit_notes = (notes, low=20, high=100) ->
 patternMap = {
   up: (current_tick) -> (current_tick + 12) % 24
   down: (current_tick) -> current_tick % 24
+  dotquarter: (current_tick) -> current_tick % 36
   half: (current_tick) -> current_tick % 48
+  dothalf: (current_tick) -> current_tick % 72
   whole: (current_tick) -> current_tick % 96
   samba: (current_tick) ->
     return not ([0, 18, 36, 60, 72].indexOf(current_tick % 96) > -1)
@@ -230,7 +235,7 @@ patternMap = {
 
 }
 
-class UpbeatChordPlayer extends CommaPlayer
+class ChordPlayer extends CommaPlayer
 
   play: (current_tick, time, tempo, metronome) ->
     super current_tick, time, tempo, metronome
@@ -243,10 +248,13 @@ class UpbeatChordPlayer extends CommaPlayer
     if patternMap[pattern](current_tick)
       return
 
-
     volume = @options.volume or 30
-    sustain_ticks = @options.sustain_ticks or 12
+    volume += (@options.random * (Math.random() - 0.5)) * volume * 2
+    sustain_ticks = (@options.sustain_ticks or 12)
+
     sustain = metronome.seconds_per_tick * sustain_ticks
+    sustain += @options.random * (Math.random() - 0.5) * sustain * 2
+
     low = @options.low or 0
     high = @options.high or 100
 
@@ -264,22 +272,45 @@ class RandomArpPlayer extends CommaPlayer
     if @off
       return
 
-    # 16th
-    if (current_tick % (@options.tick_multiple or 12))
+    tick_multiple = @options.tick_multiple or 12
+    if not binran(@options.play_prob or 1)
       return
+
+    vol_factor = 1
+    if (current_tick % tick_multiple)
+      # not on the tick multiple
+      if current_tick % (tick_multiple / 2)
+        # not half either
+        return
+      # is half
+      if not binran(@options.p_double)
+        # prob of playing half is p_double
+        return
+      vol_factor *= 0.125
+
+    # emphasis on downer beats
+    if (current_tick % (tick_multiple * 2))
+      vol_factor *= 1.5
 
     if (@options.volume is 0)
       return
     volume = @options.volume or 127
-    volume = volume * Math.random()
+    volume = volume * Math.random() * vol_factor
     if volume > 127
       volume = 127
 
     low = @options.low or 0
     high = @options.high or 100
 
-    sustain_ticks = @options.sustain_ticks or 6
+    @options.sustain_ticks = @options.sustain_ticks or 6
+    random_ticks = @options.sustain_ticks * @options.sustain_random * Math.random()
+    sustain_ticks = @options.sustain_ticks
+    if binran()
+      sustain_ticks -= random_ticks
+    else
+      sustain_ticks += random_ticks
     sustain = metronome.seconds_per_tick * sustain_ticks
+
     start = time - metronome.audioContext.currentTime
     notes = limit_notes(get_full_chord(@chord), low, high)
     rand = notes[Math.floor(Math.random() * notes.length)]
@@ -306,7 +337,7 @@ class OscillatorPlayer extends CommaPlayer
       return
 
     @options.sustain = @options.sustain or 2
-    sustain = 60 * @options.sustain / tempo * 0.125
+    sustain = @options.sustain * metronome.seconds_per_tick
     @options.gain = @options.gain or 0.2
     gain = @options.gain / 10
 
@@ -351,8 +382,11 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     arp_high: 110
     arp_low: 20
     arp_on: true
+    arp_play_prob: 0.5
+    arp_p_double: 0.01
     arp_sustain_ticks: "3"
-    arp_tick_multiple: "3"
+    arp_sustain_random: 0.1
+    arp_tick_multiple: "6"
     arp_volume: "200"
     chords_high: 110
     chords_low: 38
@@ -360,6 +394,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     chords_pattern: "rhumba"
     chords_sustain_ticks: "2"
     chords_volume: "48"
+    chords_random: 0.1
     comma_song: "C,,G dim7,,"
     instrument: "guitar"
     lookahead: "20"
@@ -492,6 +527,9 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
   $scope.chords_pattern_change = () ->
     $scope.chord_player.options.pattern = $scope.chords_pattern
     set_search('chords_pattern')
+  $scope.chords_random_change = () ->
+    $scope.chord_player.options.random = $scope.chords_random
+    set_search('chords_random')
 
   # arp
   $scope.arp_on_change = () ->
@@ -505,6 +543,10 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     $scope.arp_player.options.sustain_ticks =
       Number($scope.arp_sustain_ticks)
     set_search('arp_sustain_ticks')
+  $scope.arp_sustain_random_change = () ->
+    $scope.arp_player.options.sustain_random =
+      Number($scope.arp_sustain_random)
+    set_search('arp_sustain_random')
   $scope.arp_low_change = () ->
     normalize_scope()
     if ($scope.arp_high <= $scope.arp_low)
@@ -523,6 +565,14 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     $scope.arp_player.options.tick_multiple =
       Number($scope.arp_tick_multiple)
     set_search('arp_tick_multiple')
+  $scope.arp_play_prob_change = () ->
+    $scope.arp_player.options.play_prob =
+      Number($scope.arp_play_prob)
+    set_search('arp_play_prob')
+  $scope.arp_p_double_change = () ->
+    $scope.arp_player.options.p_double =
+      Number($scope.arp_p_double)
+    set_search('arp_p_double')
 
   $scope.init = () ->
     $scope.fb = new Fretboard $scope.instruments[$scope.instrument]
@@ -536,7 +586,7 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     $scope.oscillator_player = new OscillatorPlayer(
       $scope.comma_song, $scope.metronome, $scope)
 
-    $scope.chord_player = new UpbeatChordPlayer(
+    $scope.chord_player = new ChordPlayer(
       $scope.comma_song, $scope.metronome, $scope)
 
     $scope.arp_player = new RandomArpPlayer(
@@ -554,12 +604,16 @@ fretboardApp.controller 'FretboardChanger', ($scope, $location) ->
     $scope.chords_low_change()
     $scope.chords_high_change()
     $scope.chords_pattern_change()
+    $scope.chords_random_change()
     $scope.arp_on_change()
     $scope.arp_volume_change()
     $scope.arp_sustain_ticks_change()
+    $scope.arp_sustain_random_change()
     $scope.arp_low_change()
     $scope.arp_high_change()
     $scope.arp_tick_multiple_change()
+    $scope.arp_play_prob_change()
+    $scope.arp_p_double_change()
 
     $scope.metronome.players = [
       $scope.fbcp
